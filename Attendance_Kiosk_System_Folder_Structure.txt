@@ -1,0 +1,24 @@
+face-attendance-system/
+├── data/
+│   ├── faces/               # Enrolled cropped image storage
+│   ├── attendance.db        # SQLite Database
+│   └── embeddings.npy       # Optional cached vector matrix
+├── models/                  # Local ONNX / Dlib face models
+├── backend/
+│   ├── main.py              # FastAPI WebServer & Websocket routes
+│   ├── face_engine.py       # Face detection, embedding & quality validation
+│   ├── database.py          # SQLite ORM / DB operations
+│   └── config.py            # Settings loader & default fallback values
+├── frontend/                # Next.js app or FastAPI Jinja2 static/templates
+│   ├── components/
+│   │   ├── KioskStream.jsx
+│   │   ├── EnrollmentWizard.jsx
+│   │   └── SettingsForm.jsx
+│   └── pages/
+│       ├── admin/
+│       └── kiosk/
+├── setup.bat
+├── setup.sh
+├── run.bat
+├── run.sh
+└── requirements.txt

@@ -1,0 +1,49 @@
+{% extends "admin/base.html" %}
+{% block title %}Enroll{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>Enrollment wizard</h1>
+</div>
+<div class="wizard">
+  <div>
+    <div class="preview-wrap">
+      <video id="enroll-video" playsinline autoplay muted></video>
+      <canvas id="enroll-canvas"></canvas>
+    </div>
+    <p id="pose-hint" class="muted"></p>
+    <div class="enroll-progress">
+      <progress id="enroll-progress" value="0" max="{{ poses | length }}"></progress>
+      <span id="enroll-progress-label">0 of {{ poses | length }} poses captured</span>
+    </div>
+    <div class="row">
+      <button id="capture-btn" class="btn" type="button" disabled>Capture</button>
+      <button id="finish-btn" class="btn secondary" type="button" disabled>Save person</button>
+    </div>
+    <p id="enroll-status"></p>
+    <p id="quality-guidance" class="quality-guidance" aria-live="polite">Waiting for camera analysis...</p>
+    <ul id="quality" class="quality"></ul>
+  </div>
+  <div>
+    <div class="panel">
+      <label for="employee_id">Employee ID</label>
+      <input id="employee_id" value="{{ next_id }}">
+      <label for="name">Full name</label>
+      <input id="name" required>
+      <label for="department">Department</label>
+      <input id="department" required>
+    </div>
+    <div class="steps" style="margin-top:12px">
+      {% for pose in poses %}
+      <div class="step" id="step-{{ pose.id }}">
+        <strong>Step {{ loop.index }} · {{ pose.label }}</strong>
+        <div class="muted">{{ pose.hint }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<script id="pose-data" type="application/json">{{ poses | tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/EnrollmentWizard.js"></script>
+{% endblock %}

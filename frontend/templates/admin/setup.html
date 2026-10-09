@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create admin password</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <form class="card" method="post">
+      <h1>First-run setup</h1>
+      <p>Set the admin password for this local kiosk. It is stored only on this machine.</p>
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" minlength="6" required>
+      <label for="confirm">Confirm</label>
+      <input id="confirm" name="confirm" type="password" minlength="6" required>
+      <button class="btn full" type="submit">Save and continue</button>
+    </form>
+  </div>
+</body>
+</html>

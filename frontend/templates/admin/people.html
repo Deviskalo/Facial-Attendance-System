@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% block title %}People{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>People</h1>
+  <a class="btn" href="/admin/people/add">Add person</a>
+</div>
+<div class="panel">
+  <table>
+    <thead>
+      <tr><th>Photo</th><th>ID</th><th>Name</th><th>Department</th><th>Active</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for person in people %}
+      <tr>
+        <td>
+          <img src="/media/faces/{{ person.id }}/center" alt="" width="48" height="48" style="border-radius:8px;object-fit:cover" onerror="this.style.display='none'">
+        </td>
+        <td>{{ person.id }}</td>
+        <td>{{ person.name }}</td>
+        <td>{{ person.department }}</td>
+        <td>{{ "Yes" if person.is_active else "No" }}</td>
+        <td><button class="btn danger" onclick="deleteEmployee('{{ person.id }}')">Delete</button></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">No people enrolled yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

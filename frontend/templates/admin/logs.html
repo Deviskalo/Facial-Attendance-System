@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>Attendance records</h1>
+  <div class="row">
+    <button class="btn secondary" type="button" onclick="exportLogs('csv')">Export CSV</button>
+    <button class="btn secondary" type="button" onclick="exportLogs('xlsx')">Export Excel</button>
+  </div>
+</div>
+<div class="panel">
+  <div class="filters">
+    <input id="start_date" type="date">
+    <input id="end_date" type="date">
+    <select id="department">
+      <option value="">All departments</option>
+      {% for dept in departments %}
+      <option value="{{ dept }}">{{ dept }}</option>
+      {% endfor %}
+    </select>
+    <select id="status_filter">
+      <option value="">All statuses</option>
+      <option value="ON_TIME">On Time</option>
+      <option value="LATE">Late</option>
+      <option value="MANUAL">Manual</option>
+    </select>
+    <button class="btn" type="button" onclick="loadLogs()">Filter</button>
+  </div>
+  <div class="row" style="margin-bottom:12px">
+    <input id="manual_emp" placeholder="Employee ID">
+    <select id="manual_action">
+      <option value="present">Mark present</option>
+      <option value="absent">Mark absent (clear today)</option>
+    </select>
+    <input id="correction_reason" placeholder="Reason for correction (required)" maxlength="500" required>
+    <button class="btn secondary" type="button" onclick="manualEntry()">Apply override</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th><th>ID</th><th>Name</th><th>Dept</th><th>Event</th><th>Status</th><th>Conf.</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="logs-body"></tbody>
+  </table>
+</div>
+<div class="panel" style="margin-top:16px">
+  <div class="topbar">
+    <div>
+      <h2>Recent correction history</h2>
+      <p class="muted">Manual attendance changes and edits are recorded here.</p>
+    </div>
+    <div class="row">
+      <button class="btn secondary" type="button" onclick="exportAudit('csv')">Export history CSV</button>
+      <button class="btn secondary" type="button" onclick="exportAudit('xlsx')">Export history Excel</button>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Changed</th><th>Action</th><th>Employee</th><th>Admin</th><th>Reason</th><th>Details</th>
+      </tr>
+    </thead>
+    <tbody id="log-audit-body"></tbody>
+  </table>
+</div>
+{% endblock %}

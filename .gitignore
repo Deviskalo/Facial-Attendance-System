@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+data/attendance.db
+data/embeddings.npy
+data/embedding_ids.json
+data/session_secret.txt
+data/backups/
+data/faces/*
+!data/faces/.gitkeep
+models/**
+!models/.gitkeep

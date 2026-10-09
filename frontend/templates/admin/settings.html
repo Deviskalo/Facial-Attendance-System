@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>System settings</h1>
+  <a class="btn secondary" href="/api/backup">Download database backup</a>
+</div>
+<div class="grid-2">
+  <form id="settings-form" class="panel">
+    <label>Office start time</label>
+    <input name="office_start_time" type="time" value="{{ settings.office_start_time }}">
+    <label>Late margin (minutes)</label>
+    <input name="late_margin_minutes" type="number" min="0" value="{{ settings.late_margin_minutes }}">
+    <label>Detection cooldown (seconds)</label>
+    <input name="detection_cooldown_seconds" type="number" min="1" value="{{ settings.detection_cooldown_seconds }}">
+    <label>Checkout gap (minutes)</label>
+    <input name="checkout_gap_minutes" type="number" min="1" value="{{ settings.checkout_gap_minutes }}">
+    <label>Matching threshold <span id="threshold-val">{{ settings.matching_threshold }}</span></label>
+    <input id="matching_threshold" name="matching_threshold" type="range" min="0.20" max="0.60" step="0.01" value="{{ settings.matching_threshold }}">
+    <p class="muted">Lower is stricter. Distance below this value counts as a match.</p>
+    <h3>Local automatic backups</h3>
+    <label for="automatic_backups_enabled">Automatic backups</label>
+    <select id="automatic_backups_enabled" name="automatic_backups_enabled">
+      <option value="true" {{ 'selected' if settings.automatic_backups_enabled == 'true' else '' }}>Enabled</option>
+      <option value="false" {{ 'selected' if settings.automatic_backups_enabled == 'false' else '' }}>Disabled</option>
+    </select>
+    <label for="backup_interval_hours">Backup interval (hours)</label>
+    <input id="backup_interval_hours" name="backup_interval_hours" type="number" min="1" max="720" value="{{ settings.backup_interval_hours }}" required>
+    <label for="backup_retention_count">Archives to keep</label>
+    <input id="backup_retention_count" name="backup_retention_count" type="number" min="1" max="365" value="{{ settings.backup_retention_count }}" required>
+    <label for="backup_directory">Local backup folder</label>
+    <input id="backup_directory" name="backup_directory" type="text" maxlength="500" value="{{ settings.backup_directory }}" required>
+    <p class="muted">Backups stay on this computer and include a consistent SQLite snapshot, face images, and embedding files. When enabled, a backup is created at server startup if none exists; later backups follow the selected interval.</p>
+    <button class="btn" type="submit">Save settings</button>
+    <p id="settings-status"></p>
+  </form>
+  <div class="panel">
+    <h3>Live calibration preview</h3>
+    <p class="muted">Show a face to see nearest enrolled distances at the current threshold.</p>
+    <video id="calib-video" playsinline autoplay muted style="width:100%;border-radius:12px;background:#000"></video>
+    <p id="calib-result" class="muted"></p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/SettingsForm.js"></script>
+{% endblock %}

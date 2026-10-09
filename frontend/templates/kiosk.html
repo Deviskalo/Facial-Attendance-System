@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Kiosk</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="kiosk-body">
+  <div class="kiosk-shell">
+    <header class="kiosk-top">
+      <div class="kiosk-heading">
+        <div class="kiosk-brand">FACE ATTENDANCE</div>
+        <div class="kiosk-status" role="status" aria-live="polite">
+          <span class="status-item warning" id="kiosk-camera-status">
+            <i class="status-dot"></i> Camera starting
+          </span>
+          <span class="status-item warning" id="kiosk-service-status">
+            <i class="status-dot"></i> Connecting to attendance service
+          </span>
+        </div>
+      </div>
+      <div id="kiosk-clock" class="kiosk-clock"></div>
+    </header>
+    <div class="stage">
+      <video id="kiosk-video" playsinline autoplay muted></video>
+      <canvas id="kiosk-canvas"></canvas>
+      <div id="kiosk-toast" class="toast"></div>
+    </div>
+    <footer class="kiosk-bottom">
+      <div class="legend">
+        <span><i class="dot green"></i> Recognized</span>
+        <span><i class="dot yellow"></i> Unknown</span>
+        <span><i class="dot red"></i> Error / multiple faces</span>
+      </div>
+      <a href="/admin">Admin</a>
+    </footer>
+  </div>
+  <script src="/static/js/KioskStream.js"></script>
+</body>
+</html>

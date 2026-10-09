@@ -1,0 +1,66 @@
+{% extends "admin/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>Today's attendance</h1>
+  <a class="btn secondary" href="/api/backup">Download database backup</a>
+</div>
+<div class="metrics">
+  <div class="metric"><div class="muted">Enrolled</div><div class="n">{{ metrics.enrolled }}</div></div>
+  <div class="metric"><div class="muted">Present today</div><div class="n">{{ metrics.present }}</div></div>
+  <div class="metric"><div class="muted">Late</div><div class="n">{{ metrics.late }}</div></div>
+  <div class="metric"><div class="muted">Absent</div><div class="n">{{ metrics.absent }}</div></div>
+</div>
+{% if backup_status is defined and backup_settings is defined %}
+<div class="panel" style="margin-top:16px">
+  <h2>Local backups</h2>
+  {% if backup_settings[0] %}
+  <p>Automatic backup interval: every {{ backup_settings[1] }} hour(s); keeping {{ backup_settings[2] }} archive(s).</p>
+  {% else %}
+  <p>Automatic backups are disabled.</p>
+  {% endif %}
+  <p class="muted">Folder: {{ backup_status.directory }}</p>
+  <p class="muted">
+    {% if backup_status.last_backup %}
+    Last backup: {{ backup_status.last_backup }} ({{ backup_status.last_backup_file }})
+    {% else %}
+    No local backup has been created yet.
+    {% endif %}
+  </p>
+  <a class="btn secondary" href="/admin/settings">Backup settings</a>
+</div>
+{% endif %}
+<div class="panel" style="margin-top:16px">
+  <h2>Today's attendance by department</h2>
+  <table>
+    <thead>
+      <tr><th>Department</th><th>Enrolled</th><th>Present</th><th>Late</th><th>Absent</th></tr>
+    </thead>
+    <tbody>
+      {% for row in department_summary %}
+      <tr>
+        <td>{{ row.department }}</td>
+        <td>{{ row.enrolled }}</td>
+        <td>{{ row.present }}</td>
+        <td>{{ row.late }}</td>
+        <td>{{ row.absent }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No active employees to summarize.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="grid-2" style="margin-top:16px">
+  <div class="panel">
+    <h3>Live activity</h3>
+    <div id="activity-list" class="activity"></div>
+  </div>
+  <div class="panel">
+    <h3>Quick links</h3>
+    <p class="muted">Enroll faces, calibrate matching, or open the kiosk display.</p>
+    <p><a class="btn" href="/admin/people/add">Enroll a person</a></p>
+    <p><a class="btn secondary" href="/kiosk">Launch kiosk</a></p>
+  </div>
+</div>
+{% endblock %}

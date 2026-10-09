@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin{% endblock %} · Attendance</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="admin">
+    <aside class="sidebar">
+      <h2>Control Center</h2>
+      <nav class="nav">
+        <a href="/admin" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
+        <a href="/admin/people" class="{{ 'active' if active == 'people' else '' }}">People</a>
+        <a href="/admin/people/add">Enroll</a>
+        <a href="/admin/logs" class="{{ 'active' if active == 'logs' else '' }}">Logs</a>
+        <a href="/admin/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
+        <a href="/kiosk">Open kiosk</a>
+        <a href="/admin/logout">Log out</a>
+      </nav>
+    </aside>
+    <main class="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script src="/static/js/admin.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
