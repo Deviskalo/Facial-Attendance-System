@@ -7,6 +7,7 @@ import io
 import json
 import logging
 import time
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Optional
@@ -15,8 +16,10 @@ import cv2
 from fastapi import (
     FastAPI,
     Form,
+    File,
     HTTPException,
     Request,
+    UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -66,6 +69,7 @@ db.init_db()
 rebuild_match_cache()
 
 logger = logging.getLogger(__name__)
+backup_operation_lock = asyncio.Lock()
 
 
 def _backup_preferences() -> tuple[bool, int, int, str]:
@@ -90,10 +94,11 @@ async def _automatic_backup_loop() -> None:
                 >= interval_hours * 60 * 60
             )
             if due:
-                archive = await asyncio.to_thread(backups.create_backup, directory)
-                await asyncio.to_thread(
-                    backups.prune_backups, directory, retention_count
-                )
+                async with backup_operation_lock:
+                    archive = await asyncio.to_thread(backups.create_backup, directory)
+                    await asyncio.to_thread(
+                        backups.prune_backups, directory, retention_count
+                    )
                 logger.info("Created automatic local backup: %s", archive)
                 continue
             remaining = interval_hours * 60 * 60 - (
@@ -616,13 +621,47 @@ async def api_backup(request: Request):
     if denied := _deny_api(request):
         return denied
     _, _, retention_count, directory = _backup_preferences()
-    archive = await asyncio.to_thread(backups.create_backup, directory)
-    await asyncio.to_thread(backups.prune_backups, directory, retention_count)
+    async with backup_operation_lock:
+        archive = await asyncio.to_thread(backups.create_backup, directory)
+        await asyncio.to_thread(
+            backups.prune_backups, directory, retention_count
+        )
     return FileResponse(
         archive,
         media_type="application/zip",
         filename=archive.name,
     )
+
+
+@app.post("/api/backup/restore")
+async def api_restore_backup(request: Request, file: UploadFile = File(...)):
+    if denied := _deny_api(request):
+        return denied
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(400, "Select a ZIP backup file.")
+    if file.size is not None and file.size > backups.MAX_ARCHIVE_BYTES:
+        raise HTTPException(413, "Backup file exceeds the 4 GiB restore limit.")
+    _, _, _, directory = _backup_preferences()
+    try:
+        async with backup_operation_lock:
+            safety_backup = await asyncio.to_thread(
+                backups.restore_backup, file.file, directory
+            )
+    except (ValueError, zipfile.BadZipFile) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except OSError as exc:
+        logger.exception("Could not restore the uploaded attendance backup.")
+        raise HTTPException(500, f"Could not restore backup: {exc}") from exc
+    except Exception as exc:
+        logger.exception("Could not restore the uploaded attendance backup.")
+        raise HTTPException(500, "Restore failed. The pre-restore safety backup was retained.") from exc
+    finally:
+        await file.close()
+    return {
+        "ok": True,
+        "message": "Backup restored successfully.",
+        "safety_backup": safety_backup.name,
+    }
 
 
 @app.post("/api/preview-match")

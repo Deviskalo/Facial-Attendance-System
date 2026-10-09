@@ -5,6 +5,8 @@
   const sliderVal = document.getElementById("threshold-val");
   const video = document.getElementById("calib-video");
   const resultEl = document.getElementById("calib-result");
+  const restoreForm = document.getElementById("restore-backup-form");
+  const restoreStatusEl = document.getElementById("restore-backup-status");
 
   slider.addEventListener("input", () => {
     sliderVal.textContent = Number(slider.value).toFixed(2);
@@ -22,6 +24,41 @@
     statusEl.textContent = res.ok
       ? "Settings saved."
       : result.detail || "Could not save settings.";
+  });
+
+  restoreForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = document.getElementById("restore-backup-file").files[0];
+    if (!file) {
+      restoreStatusEl.textContent = "Select a ZIP backup file first.";
+      return;
+    }
+    const confirmed = confirm(
+      "This will replace current attendance and enrollment data. A safety backup of the current data will be created first. Continue?"
+    );
+    if (!confirmed) return;
+
+    const submitButton = restoreForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    restoreStatusEl.textContent = "Validating backup and restoring data...";
+    try {
+      const response = await fetch("/api/backup/restore", {
+        method: "POST",
+        body: new FormData(restoreForm),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        restoreStatusEl.textContent = result.detail || "Could not restore this backup.";
+        return;
+      }
+      restoreStatusEl.textContent =
+        `Restore complete. Safety backup saved as ${result.safety_backup}. Reloading settings...`;
+      window.setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      restoreStatusEl.textContent = "Restore request failed: " + err.message;
+    } finally {
+      submitButton.disabled = false;
+    }
   });
 
   async function loopCalib() {

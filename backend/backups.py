@@ -4,8 +4,10 @@ import json
 import os
 import shutil
 import sqlite3
+import stat
 import tempfile
 import zipfile
+import zlib
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
@@ -20,12 +22,12 @@ from backend.config import (
     ROOT_DIR,
 )
 
-    _MAX_ARCHIVE_BYTES = 4 * 1024 * 1024 * 1024
-    _MAX_DATABASE_BYTES = 1024 * 1024 * 1024
-    _MAX_FILE_BYTES = 100 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 4 * 1024 * 1024 * 1024
+_MAX_DATABASE_BYTES = 1024 * 1024 * 1024
+_MAX_FILE_BYTES = 100 * 1024 * 1024
 
 
-    def resolve_backup_directory(directory: str | Path | None = None) -> Path:
+def resolve_backup_directory(directory: str | Path | None = None) -> Path:
     selected = Path(directory).expanduser() if directory else BACKUPS_DIR
     if not selected.is_absolute():
         selected = ROOT_DIR / selected
@@ -93,7 +95,14 @@ def _safe_archive_name(name: str) -> str:
         raise ValueError("Backup contains an unsafe file path.")
     path = Path(name)
     parts = name.split("/")
-    if path.is_absolute() or any(part in {"", ".", ".."} for part in parts):
+    if path.is_absolute() or any(
+        part in {"", ".", ".."}
+        or any(char in part for char in '<>:"|?*')
+        or part.endswith((" ", "."))
+        or part.split(".", 1)[0].upper()
+        in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+        for part in parts
+    ):
         raise ValueError("Backup contains an unsafe file path.")
     if name in {"attendance.db", "embeddings.npy", "embedding_ids.json", "manifest.json"}:
         return name
@@ -103,28 +112,24 @@ def _safe_archive_name(name: str) -> str:
 
 
 def _validate_database(path: Path) -> None:
-    with closing(sqlite3.connect(path)) as connection:
-        result = connection.execute("PRAGMA integrity_check").fetchone()
-        if not result or result[0] != "ok":
-            raise ValueError(f"Backup database integrity check failed: {result}")
-        tables = {
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            ).fetchall()
-        }
-        required_tables = {"employees", "face_embeddings", "attendance_logs"}
-        if not required_tables.issubset(tables):
-            raise ValueError("Backup database is missing required attendance tables.")
-
-
-def _install_staged_file(source: Path, destination: Path, rollback: Path) -> bool:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    existed = destination.exists()
-    if existed:
-        os.replace(destination, rollback)
-    os.replace(source, destination)
-    return existed
+    try:
+        with closing(sqlite3.connect(path)) as connection:
+            result = connection.execute("PRAGMA integrity_check").fetchone()
+            if not result or result[0] != "ok":
+                raise ValueError(f"Backup database integrity check failed: {result}")
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            required_tables = {"employees", "face_embeddings", "attendance_logs"}
+            if not required_tables.issubset(tables):
+                raise ValueError("Backup database is missing required attendance tables.")
+            if connection.execute("PRAGMA foreign_key_check").fetchone():
+                raise ValueError("Backup database contains invalid employee references.")
+    except sqlite3.DatabaseError as exc:
+        raise ValueError("Backup contains an invalid SQLite database.") from exc
 
 
 def restore_backup(
@@ -132,10 +137,10 @@ def restore_backup(
 ) -> Path:
     backup_dir = resolve_backup_directory(directory)
     backup_dir.mkdir(parents=True, exist_ok=True)
-    DATA_DIR = DB_PATH.parent
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_dir = DB_PATH.parent
+    data_dir.mkdir(parents=True, exist_ok=True)
     safety_backup: Path | None = None
-    with tempfile.TemporaryDirectory(prefix=".attendance-restore-", dir=DATA_DIR) as temp:
+    with tempfile.TemporaryDirectory(prefix=".attendance-restore-", dir=data_dir) as temp:
         work_dir = Path(temp)
         extracted = work_dir / "contents"
         extracted.mkdir()
@@ -155,30 +160,37 @@ def restore_backup(
                 if info.is_dir():
                     continue
                 name = _safe_archive_name(info.filename)
-                if name in names:
+                folded_name = name.casefold()
+                if folded_name in names:
                     raise ValueError(f"Backup contains duplicate file: {name}")
-                names.add(name)
+                names.add(folded_name)
                 if info.file_size > _MAX_FILE_BYTES and name != "attendance.db":
                     raise ValueError(f"Backup file is too large: {name}")
                 if name == "attendance.db" and info.file_size > _MAX_DATABASE_BYTES:
                     raise ValueError("Backup database exceeds the 1 GiB restore limit.")
                 total_size += info.file_size
-                if total_size > _MAX_ARCHIVE_BYTES:
+                if total_size > MAX_ARCHIVE_BYTES:
                     raise ValueError("Backup exceeds the 4 GiB restore limit.")
                 mode = info.external_attr >> 16
-                if mode and (mode & 0o170000) == 0o120000:
-                    raise ValueError("Backup contains an unsupported symbolic link.")
+                file_type = stat.S_IFMT(mode)
+                if file_type not in {0, stat.S_IFREG}:
+                    raise ValueError("Backup contains an unsupported non-regular file.")
+                if info.flag_bits & 0x1:
+                    raise ValueError("Encrypted backups are not supported.")
                 members.append((info, name))
                 if name == "attendance.db":
                     database_member = info
             if database_member is None:
                 raise ValueError("Backup does not contain attendance.db.")
 
-            for info, name in members:
-                destination = extracted.joinpath(*name.split("/"))
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                with archive.open(info, "r") as source, destination.open("wb") as target:
-                    shutil.copyfileobj(source, target)
+            try:
+                for info, name in members:
+                    destination = extracted.joinpath(*name.split("/"))
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(info, "r") as source, destination.open("wb") as target:
+                        shutil.copyfileobj(source, target)
+            except (zipfile.BadZipFile, RuntimeError, zlib.error) as exc:
+                raise ValueError("Backup archive is encrypted or contains corrupt data.") from exc
 
         staged_db = extracted / "attendance.db"
         _validate_database(staged_db)
@@ -188,18 +200,19 @@ def restore_backup(
         _snapshot_database(rollback_db)
         rollback_faces = work_dir / "current-faces"
         faces_staged = extracted / "faces"
-        faces_installed = False
+        faces_changed = False
         old_embedding_files: list[tuple[Path, Path | None]] = []
         database_changed = False
 
         try:
             if FACES_DIR.exists():
                 os.replace(FACES_DIR, rollback_faces)
+                faces_changed = True
             if faces_staged.exists():
                 os.replace(faces_staged, FACES_DIR)
             else:
                 FACES_DIR.mkdir(parents=True, exist_ok=True)
-            faces_installed = True
+            faces_changed = True
 
             for filename, target in (
                 ("embeddings.npy", EMBEDDINGS_PATH),
@@ -207,15 +220,15 @@ def restore_backup(
             ):
                 source = extracted / filename
                 previous = work_dir / f"previous-{filename}"
+                existed = target.exists()
+                if existed:
+                    os.replace(target, previous)
+                old_embedding_files.append((target, previous if existed else None))
                 if source.exists():
-                    existed = _install_staged_file(source, target, previous)
-                    old_embedding_files.append((target, previous if existed else None))
-                else:
-                    existed = target.exists()
-                    if existed:
-                        os.replace(target, previous)
-                    old_embedding_files.append((target, previous if existed else None))
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(source, target)
 
+            database_changed = True
             with closing(sqlite3.connect(staged_db)) as source:
                 with closing(sqlite3.connect(DB_PATH)) as destination:
                     source.backup(destination)
@@ -224,8 +237,6 @@ def restore_backup(
                         raise RuntimeError(
                             f"Restored database integrity check failed: {integrity}"
                         )
-            database_changed = True
-
             from backend import database
             from backend.face_engine import rebuild_match_cache
 
@@ -236,7 +247,7 @@ def restore_backup(
                 with closing(sqlite3.connect(rollback_db)) as source:
                     with closing(sqlite3.connect(DB_PATH)) as destination:
                         source.backup(destination)
-            if faces_installed:
+            if faces_changed:
                 if FACES_DIR.exists():
                     shutil.rmtree(FACES_DIR)
                 if rollback_faces.exists():

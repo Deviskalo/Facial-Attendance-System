@@ -41,6 +41,14 @@
     <p id="calib-result" class="muted"></p>
   </div>
 </div>
+<form id="restore-backup-form" class="panel" style="margin-top:16px">
+  <h2>Restore a local backup</h2>
+  <p class="muted">Restoring replaces current attendance records, employees, face images, and embeddings. A safety backup of the current data will be saved first.</p>
+  <label for="restore-backup-file">Backup ZIP file</label>
+  <input id="restore-backup-file" name="file" type="file" accept=".zip,application/zip" required>
+  <button class="btn secondary" type="submit">Restore backup</button>
+  <p id="restore-backup-status" role="status" aria-live="polite"></p>
+</form>
 {% endblock %}
 {% block scripts %}
 <script src="/static/js/SettingsForm.js"></script>

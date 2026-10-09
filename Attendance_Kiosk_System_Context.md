@@ -79,7 +79,7 @@ Password-protected section (prompt for admin password setup on initial startup):
   - `detection_cooldown_seconds` (e.g., `60`)
   - `checkout_gap_minutes` (e.g., `120`)
   - `matching_threshold` (Slider to calibrate facial distance tolerance; default `0.36`). Includes a visual calibration preview tool.
-- **Database Backup**: One-click "Download Database Backup" button that packages SQLite tables and stored face vectors into a timestamped `.zip` file.
+- **Database Backup**: One-click "Download Database Backup" button that packages a consistent SQLite snapshot and related face assets into a timestamped `.zip`; admins can restore a validated ZIP from Settings, with a safety backup made before replacement.
 - **Automatic Local Backups**: While the server is running, create verified timestamped archives locally using SQLite's online backup API; package the database snapshot, embeddings, and enrolled face images, and prune archives to the configured retention count.
 
 ---
