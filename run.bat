@@ -8,11 +8,18 @@ if not exist .venv\Scripts\python.exe (
   if errorlevel 1 exit /b 1
 )
 
+.venv\Scripts\python.exe --version
 .venv\Scripts\python.exe -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)" >nul 2>&1
 if errorlevel 1 (
-  echo The existing .venv does not use Python 3.10 or newer.
-  echo Rename or remove .venv manually, then run setup.bat.
-  exit /b 1
+  echo The existing .venv cannot start or does not use Python 3.10 or newer.
+  echo Running setup so you can choose whether to recreate it...
+  call setup.bat
+  if errorlevel 1 exit /b 1
+  .venv\Scripts\python.exe -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)" >nul 2>&1
+  if errorlevel 1 (
+    echo The Python environment is still unavailable. Review the setup output above.
+    exit /b 1
+  )
 )
 
 .venv\Scripts\python.exe -c "import uvicorn" >nul 2>&1

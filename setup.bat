@@ -2,6 +2,57 @@
 setlocal
 cd /d "%~dp0"
 
+if not exist ".venv" goto FIND_PYTHON
+if not exist ".venv\Scripts\python.exe" goto BROKEN_VENV
+
+echo Checking the existing virtual environment...
+.venv\Scripts\python.exe --version
+.venv\Scripts\python.exe -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)" >nul 2>&1
+if errorlevel 1 goto BROKEN_VENV
+goto VALID_VENV
+
+:VALID_VENV
+echo A working Python 3.10+ environment already exists.
+set "SETUP_CHOICE="
+set /p "SETUP_CHOICE=Keep and update this environment, recreate it, or cancel? [K/r/c] "
+if not defined SETUP_CHOICE set "SETUP_CHOICE=K"
+if /I "%SETUP_CHOICE%"=="K" goto INSTALL_PACKAGES
+if /I "%SETUP_CHOICE%"=="R" goto REMOVE_VENV
+if /I "%SETUP_CHOICE%"=="C" goto CANCEL_SETUP
+echo Please enter K, R, or C.
+goto VALID_VENV
+
+:BROKEN_VENV
+echo The existing .venv is missing, cannot start, or uses Python older than 3.10.
+echo The environment must be recreated before setup can continue.
+set "SETUP_CHOICE="
+set /p "SETUP_CHOICE=Recreate .venv, or cancel? [r/C] "
+if /I "%SETUP_CHOICE%"=="R" goto REMOVE_VENV
+if not defined SETUP_CHOICE goto CANCEL_SETUP
+if /I "%SETUP_CHOICE%"=="C" goto CANCEL_SETUP
+echo Please enter R or C.
+goto BROKEN_VENV
+
+:REMOVE_VENV
+powershell -NoProfile -NonInteractive -Command "try { $item = Get-Item -LiteralPath '.venv' -Force -ErrorAction Stop; if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 0 }; exit 1 } catch { exit 2 }" >nul 2>&1
+if errorlevel 2 (
+  echo Could not safely determine whether .venv is a symlink or junction.
+  echo No files were removed. Inspect .venv manually, then retry setup.bat.
+  exit /b 1
+)
+if not errorlevel 1 (
+  echo .venv is a symlink or junction. It was not removed to avoid affecting its target.
+  echo Remove or rename that link yourself, then run setup.bat again.
+  exit /b 1
+)
+echo Removing the existing .venv as requested...
+rmdir /s /q .venv
+if exist ".venv" (
+  echo Could not remove .venv. Close programs using it and check folder permissions, then retry.
+  exit /b 1
+)
+
+:FIND_PYTHON
 set "PYTHON_CMD="
 where py >nul 2>&1
 if not errorlevel 1 (
@@ -54,22 +105,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if exist .venv\Scripts\python.exe (
-  .venv\Scripts\python.exe -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)" >nul 2>&1
-  if errorlevel 1 (
-    echo The existing .venv uses Python older than 3.10.
-    echo Rename or remove .venv manually, then run setup.bat again.
-    exit /b 1
-  )
-) else (
-  echo Creating virtual environment...
-  %PYTHON_CMD% -m venv .venv
-  if errorlevel 1 (
-    echo Could not create .venv. Verify that Python includes the venv module.
-    exit /b 1
-  )
+echo Creating virtual environment...
+%PYTHON_CMD% -m venv .venv
+if errorlevel 1 (
+  echo Could not create .venv. Verify that Python includes the venv module.
+  exit /b 1
 )
 
+:INSTALL_PACKAGES
 echo Installing Python packages...
 .venv\Scripts\python.exe -m pip install --upgrade pip
 if errorlevel 1 (
@@ -100,3 +143,7 @@ if errorlevel 1 (
 echo.
 echo Setup complete. Run run.bat to start the kiosk.
 exit /b 0
+
+:CANCEL_SETUP
+echo Setup cancelled. No environment was changed.
+exit /b 1

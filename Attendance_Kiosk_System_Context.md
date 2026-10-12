@@ -22,7 +22,8 @@ The entire system must run on a local network (LAN/Wi-Fi) without relying on any
 Provide setup and launcher scripts that handle environment configuration automatically:
 - `setup.bat` (Windows) & `setup.sh` (Linux/macOS):
   - Checks for Python 3.10 or newer; if unavailable, offers to install Python using winget on Windows or a supported system package manager on Linux/macOS.
-  - Creates a local Python virtual environment (`.venv`).
+  - Detects an existing `.venv`, verifies its Python interpreter, and prompts before keeping/updating a usable environment or recreating it; a broken environment is not replaced without confirmation.
+  - Creates a local Python virtual environment (`.venv`) when one is not available.
   - Upgrades `pip`, installs `requirements.txt`, and checks for dependency conflicts.
   - Downloads required local ONNX/Dlib face detection models into a `/models` folder.
 - `run.bat` (Windows) & `run.sh` (Linux/macOS):

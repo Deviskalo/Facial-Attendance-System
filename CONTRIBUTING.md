@@ -21,7 +21,7 @@ Use the setup script for your platform from the repository root:
 ./setup.sh
 ```
 
-The scripts create `.venv`, install `requirements.txt`, check dependency consistency, and obtain the InsightFace model if needed. Initial setup requires internet access. Run the app with `.\run.bat` on Windows or `./run.sh` on Linux/macOS.
+The scripts create `.venv`, install `requirements.txt`, check dependency consistency, and obtain the InsightFace model if needed. Initial setup requires internet access. If a usable `.venv` already exists, setup asks whether to keep/update it or recreate it (default: keep). A broken environment requires an explicit recreate choice. Run the app with `.\run.bat` on Windows or `./run.sh` on Linux/macOS.
 
 ## Making a change
 

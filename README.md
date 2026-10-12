@@ -26,6 +26,8 @@ The application processes camera frames and stores attendance and enrollment dat
 
 The setup scripts can offer to install Python when it is missing (using Winget on Windows or supported system package managers on Linux/macOS). Review any installer prompts before accepting them.
 
+If a project `.venv` already exists, setup checks whether it can run Python 3.10 or newer. For a usable environment, the default is to keep and update it; choose recreate only when you intentionally want a clean environment. If the environment is broken or too old, setup asks before removing it. Recreating `.venv` does not remove the application's `data/` directory. Symbolic links/junctions are handled cautiously to avoid deleting an external target.
+
 ## Quick start
 
 Run commands from the project directory.

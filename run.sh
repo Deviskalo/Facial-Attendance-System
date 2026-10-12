@@ -8,9 +8,13 @@ if [[ ! -x .venv/bin/python ]]; then
 fi
 
 if ! .venv/bin/python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
-  echo "The existing .venv does not use Python 3.10 or newer."
-  echo "Rename or remove .venv manually, then run ./setup.sh."
-  exit 1
+  echo "The existing .venv cannot start or does not use Python 3.10 or newer."
+  echo "Running setup so you can choose whether to recreate it..."
+  bash ./setup.sh
+  if ! .venv/bin/python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+    echo "The Python environment is still unavailable. Review the setup output above."
+    exit 1
+  fi
 fi
 
 if ! .venv/bin/python -c 'import uvicorn' >/dev/null 2>&1; then

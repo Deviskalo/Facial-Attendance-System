@@ -35,6 +35,8 @@ These items describe the project foundation and current architecture; their orig
 ## Setup and local backup — subsequent improvements, dates not recorded
 
 - **Changed:** Setup scripts check for Python 3.10 or newer, offer supported OS-specific installation paths when Python is unavailable, create/reuse `.venv`, install requirements, and check dependency consistency.
+- **Changed:** Setup scripts now test whether an existing `.venv` interpreter actually runs. They prompt before reusing/updating a working environment or recreating it; broken or too-old environments are not replaced without confirmation. Recreating a symlinked Unix `.venv` removes only the link, not its target.
+- **Changed:** Run scripts route broken or unsupported environments through setup and report that the interpreter cannot start or is too old, instead of implying the version check alone proves the cause.
 - **Changed:** Run scripts use the local virtual environment, check application dependencies and face-model availability, and print LAN access URLs.
 - **Added:** Configurable automatic local backups with an interval and retention count. Backups use SQLite's online backup API and include the database snapshot and associated face assets/cache files.
 - **Added:** Manual backup download and dashboard status for local backups.

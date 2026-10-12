@@ -48,39 +48,92 @@ install_python() {
   esac
 }
 
-if ! find_python; then
-  echo "Python 3.10 or newer was not found."
-  read -r -p "Install Python using this system's package manager? [y/N] " answer
-  case "$answer" in
-    y|Y|yes|YES|Yes)
-      install_python
-      if ! find_python; then
-        echo "Python was installed or updated, but Python 3.10+ is still not on PATH."
-        echo "Open a new terminal or install Python 3.10 or newer manually, then rerun setup.sh."
-        exit 1
-      fi
-      ;;
-    *)
-      echo "Setup cancelled. Install Python 3.10 or newer and rerun setup.sh."
-      exit 1
-      ;;
-  esac
+remove_environment() {
+  if [[ -L .venv ]]; then
+    echo "Removing the .venv symbolic link only; its target will not be deleted."
+    rm -- .venv
+  elif [[ -e .venv ]]; then
+    echo "Removing the existing .venv as requested..."
+    rm -rf -- .venv
+  fi
+  if [[ -e .venv || -L .venv ]]; then
+    echo "Could not remove .venv. Close programs using it and check folder permissions, then retry."
+    return 1
+  fi
+}
+
+if [[ -e .venv || -L .venv ]]; then
+  env_usable=false
+  if [[ -x .venv/bin/python ]]; then
+    .venv/bin/python --version || true
+    if .venv/bin/python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+      env_usable=true
+    fi
+  fi
+
+  if [[ "$env_usable" == true ]]; then
+    echo "A working Python 3.10+ environment already exists."
+    while true; do
+      read -r -p "Keep and update this environment, recreate it, or cancel? [K/r/c] " choice || choice=""
+      choice="${choice:-K}"
+      case "$choice" in
+        [Kk]) break ;;
+        [Rr]) remove_environment; env_usable=false; break ;;
+        [Cc]) echo "Setup cancelled. No environment was changed."; exit 1 ;;
+        *) echo "Please enter K, R, or C." ;;
+      esac
+    done
+  else
+    echo "The existing .venv is missing, cannot start, or uses Python older than 3.10."
+    echo "The environment must be recreated before setup can continue."
+    while true; do
+      read -r -p "Recreate .venv, or cancel? [r/C] " choice || choice=""
+      case "$choice" in
+        [Rr]) remove_environment; break ;;
+        ""|[Cc]) echo "Setup cancelled. No environment was changed."; exit 1 ;;
+        *) echo "Please enter R or C." ;;
+      esac
+    done
+  fi
 fi
 
-echo "Using $("$python_cmd" --version) at $python_cmd"
-
-if [[ -x .venv/bin/python ]]; then
-  if ! .venv/bin/python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
-    echo "The existing .venv uses Python older than 3.10."
-    echo "Rename or remove .venv manually, then rerun setup.sh."
-    exit 1
+if [[ ! -e .venv && ! -L .venv ]]; then
+  if ! find_python; then
+    echo "Python 3.10 or newer was not found."
+    if [[ -t 0 ]]; then
+      read -r -p "Install Python using this system's package manager? [y/N] " answer || answer=""
+    else
+      answer=""
+    fi
+    case "$answer" in
+      y|Y|yes|YES|Yes)
+        install_python
+        if ! find_python; then
+          echo "Python was installed or updated, but Python 3.10+ is still not on PATH."
+          echo "Open a new terminal or install Python 3.10 or newer manually, then rerun setup.sh."
+          exit 1
+        fi
+        ;;
+      *)
+        echo "Setup cancelled. Install Python 3.10 or newer and rerun setup.sh."
+        exit 1
+        ;;
+    esac
   fi
-else
+
+  echo "Using $("$python_cmd" --version) at $python_cmd"
   echo "Creating virtual environment..."
   if ! "$python_cmd" -m venv .venv; then
     echo "Could not create .venv. Install the Python venv package for this interpreter."
     exit 1
   fi
+fi
+
+if [[ ! -x .venv/bin/python ]] ||
+  ! .venv/bin/python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+  echo "The .venv Python could not be started after setup."
+  echo "Check the selected Python installation and rerun setup.sh."
+  exit 1
 fi
 
 echo "Installing Python packages..."
