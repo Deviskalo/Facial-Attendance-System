@@ -59,6 +59,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="FaceAttendanceKiosk",
+    icon=str(root / "FaceAttendanceKiosk.ico"),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

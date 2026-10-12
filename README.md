@@ -49,7 +49,7 @@ The desktop launcher installs the optional dependency listed in `requirements-de
 
 ### Build the Windows installer
 
-The installer is built locally and does not include InsightFace model weights or application data. On a Windows x64 build machine with Python 3.10 or newer, run:
+The installer is built locally and does not include InsightFace model weights or application data. The Windows executable, installer, and shortcuts use the project's app icon. On a Windows x64 build machine with Python 3.10 or newer, run:
 
 ```powershell
 .\setup.bat
