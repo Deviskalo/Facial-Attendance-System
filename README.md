@@ -45,7 +45,7 @@ For the experimental Windows desktop window, use:
 .\desktop.bat
 ```
 
-The desktop launcher installs the optional dependency listed in `requirements-desktop.txt` when needed, starts the same application on a loopback-only ephemeral port, and opens the kiosk in a native window. Close the window to stop its local server. This is an initial wrapper, not a signed installer; camera permission behavior depends on the installed WebView2 runtime and must be verified on the target machine. Use `run.bat` to retain the existing browser/LAN mode.
+The desktop launcher installs the optional dependency listed in `requirements-desktop.txt` when needed, starts the same application on a loopback-only ephemeral port, and opens the kiosk in a native window. Its launcher limits BLAS/OpenMP worker threads to reduce resource pressure during face-model startup. Close the window to stop its local server. This is an initial wrapper, not a signed installer; camera permission behavior depends on the installed WebView2 runtime and must be verified on the target machine. Use `run.bat` to retain the existing browser/LAN mode.
 
 ### Linux or macOS
 
@@ -75,17 +75,19 @@ To stop the server, press `Ctrl+C` in the terminal where it is running.
 
 ## Data and privacy
 
-The application's default local data is stored under `data/`:
+In browser/LAN mode, the application's local data is stored under the project `data/` directory. Desktop mode stores it in the current user's application-data directory (on Windows, `%LOCALAPPDATA%\FaceAttendanceKiosk`).
 
-| Path | Contents |
+| Path relative to the data directory | Contents |
 | --- | --- |
-| `data/attendance.db` | Employees, attendance logs, audit history, and settings (SQLite) |
-| `data/faces/` | Enrolled face images |
-| `data/embeddings.npy`, `data/embedding_ids.json` | Cached face-match vectors and their employee IDs |
-| `data/session_secret.txt` | Local session-signing secret |
-| `data/backups/` | Automatic and manually created backup archives by default |
+| `attendance.db` | Employees, attendance logs, audit history, and settings (SQLite) |
+| `faces/` | Enrolled face images |
+| `embeddings.npy`, `embedding_ids.json` | Cached face-match vectors and their employee IDs |
+| `session_secret.txt` | Local session-signing secret |
+| `backups/` | Automatic and manually created backup archives by default |
 
-These files are excluded from version control by `.gitignore`. Do not add real employee data, face images, embeddings, database files, session secrets, or backup archives to commits or public issue reports.
+When desktop mode starts and a legacy project database exists but the per-user database does not, it copies missing legacy files into the per-user directory and copies the database last using SQLite's online backup API. Existing per-user databases are left untouched and are not mixed with project-local face files. The source project data is left in place. If both browser/LAN mode and desktop mode are used, they use separate data directories after desktop migration; do not expect changes made in one mode to appear in the other. Close the browser/LAN server before using desktop mode during migration.
+
+In browser/LAN mode, project data files are excluded from version control by `.gitignore`. Desktop-mode data is stored outside the repository. Do not add real employee data, face images, embeddings, database files, session secrets, or backup archives to commits or public issue reports.
 
 Backups contain the attendance database and biometric face assets. Store copies securely, limit access, and periodically verify that backups can be restored. Restore accepts ZIP archives produced for this application and validates their contents before replacement.
 

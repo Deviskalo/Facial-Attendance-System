@@ -2,6 +2,11 @@
 setlocal
 cd /d "%~dp0"
 
+set "OPENBLAS_NUM_THREADS=1"
+set "OMP_NUM_THREADS=1"
+set "MKL_NUM_THREADS=1"
+set "NUMEXPR_NUM_THREADS=1"
+
 if not exist .venv\Scripts\python.exe (
   echo Project Python environment not found. Running setup first...
   call setup.bat
@@ -30,6 +35,8 @@ echo Starting Face Attendance Kiosk desktop app...
 .venv\Scripts\python.exe -m backend.desktop
 if errorlevel 1 (
   echo The desktop app stopped with an error. Review the output above.
+  echo If startup reported OpenBLAS memory allocation errors, close other applications or restart Windows and retry.
+  echo A low-memory system may still be unable to load the face-recognition model.
   exit /b 1
 )
 endlocal

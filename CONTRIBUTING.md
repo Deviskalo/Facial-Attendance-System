@@ -49,6 +49,7 @@ For user-facing changes, verify the relevant workflow, including camera permissi
 
 - Keep recognition, attendance records, and face-data handling on the local machine; do not introduce cloud uploads or external analytics without explicit project approval.
 - Treat face imagery and embeddings as sensitive data. Minimize copies, avoid logging their contents, and use temporary test fixtures.
+- Desktop mode stores data per user and migrates missing files from the legacy project `data/` directory; preserve non-overwrite behavior and use SQLite's online backup API for database migration.
 - Keep SQLite access consistent with the existing database helpers and use SQLite's online backup API for live database snapshots.
 - Validate uploaded files and user-controlled values at the server boundary; return clear errors without success-shaped fallbacks.
 - Preserve admin authentication on administrative pages and APIs.

@@ -2,6 +2,11 @@
 setlocal
 cd /d "%~dp0"
 
+set "OPENBLAS_NUM_THREADS=1"
+set "OMP_NUM_THREADS=1"
+set "MKL_NUM_THREADS=1"
+set "NUMEXPR_NUM_THREADS=1"
+
 if not exist ".venv" goto FIND_PYTHON
 if not exist ".venv\Scripts\python.exe" goto BROKEN_VENV
 

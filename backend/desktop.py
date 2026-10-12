@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import socket
 import threading
 import time
 from collections.abc import Callable
 from typing import Protocol
+
+os.environ["ATTENDANCE_DESKTOP"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 _STARTUP_TIMEOUT_SECONDS = 60
 _SHUTDOWN_TIMEOUT_SECONDS = 15
@@ -89,6 +96,9 @@ def run_desktop(
 
     print("Checking local face-recognition model...")
     ensure_models()
+    from backend.config import DATA_DIR
+
+    print(f"Desktop data directory: {DATA_DIR}")
 
     import uvicorn
 

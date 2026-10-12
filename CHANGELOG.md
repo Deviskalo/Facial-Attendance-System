@@ -63,6 +63,18 @@ These items describe the project foundation and current architecture; their orig
 - **Changed:** Overlay positions account for the cover-cropped kiosk preview, and kiosk asset URLs include a cache-busting version.
 - **Verified by user:** The green recognition box now appears in the WebView after the overlay change.
 
+## Desktop data persistence — current development
+
+- **Changed:** Desktop mode stores the database, face images, embeddings, session secret, and default backups in a stable per-user application-data directory. Browser/LAN mode continues to use project-local `data/`.
+- **Added:** First desktop startup copies missing legacy data into the per-user directory only when a legacy project database exists and the per-user database is absent. The database is copied last with SQLite's online backup API; existing per-user databases are not mixed with project-local face files. Source project data is left in place, and the saved default backup path is updated for the new location.
+- **Not yet verified:** Migration against a real existing installation and behavior when the target per-user folder is not writable.
+
+## Startup resource limits — current development
+
+- **Changed:** Windows and Unix-like setup/run scripts limit OpenBLAS, OpenMP, MKL, and NumExpr worker threads to one before importing the face-recognition stack.
+- **Changed:** The desktop Python entry point applies the same limits before loading numerical or face-recognition packages.
+- **Reason:** Desktop startup reported OpenBLAS memory-allocation retries; the affected Windows host also reported very low free physical memory. The thread cap reduces thread-related memory overhead but cannot compensate for insufficient overall system memory.
+
 ## Documentation — current project state
 
 - **Added:** A user-facing `README.md` covering setup, use, local data locations, backup/restore, and deployment/privacy cautions.

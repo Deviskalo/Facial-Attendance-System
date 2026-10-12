@@ -2,6 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
 if [[ ! -x .venv/bin/python ]]; then
   echo "Virtual environment not found. Running setup first..."
   bash ./setup.sh
