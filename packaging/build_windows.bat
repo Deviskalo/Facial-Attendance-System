@@ -29,6 +29,11 @@ if errorlevel 1 (
 if not exist release\windows mkdir release\windows
 if not exist release\installer mkdir release\installer
 
+if not exist packaging\FaceAttendanceKiosk.ico (
+  echo The application icon was not found at packaging\FaceAttendanceKiosk.ico.
+  exit /b 1
+)
+
 echo Building the Windows application. Face model weights are intentionally not bundled.
 .venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --distpath release\windows --workpath build\pyinstaller packaging\FaceAttendanceKiosk.spec
 if errorlevel 1 (
