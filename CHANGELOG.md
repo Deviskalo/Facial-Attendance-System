@@ -57,6 +57,12 @@ These items describe the project foundation and current architecture; their orig
 - **Changed:** Desktop startup launches the existing FastAPI application on loopback (`127.0.0.1`) using an available local port, opens the kiosk in an app window, and requests a server shutdown when the window closes.
 - **Not yet verified:** Camera permission and capture behavior across WebView2 installations, native window close behavior on target devices, and packaged installer/update flows. This wrapper is a development entry point, not a production installer.
 
+## Kiosk recognition overlay — current development
+
+- **Changed:** Kiosk face boxes and labels are HTML overlays positioned above the mirrored video canvas rather than canvas strokes, to address the missing recognition box observed in WebView.
+- **Changed:** Overlay positions account for the cover-cropped kiosk preview, and kiosk asset URLs include a cache-busting version.
+- **Not yet verified:** The user needs to confirm the green recognition box appears in their WebView after reloading the updated desktop app.
+
 ## Documentation — current project state
 
 - **Added:** A user-facing `README.md` covering setup, use, local data locations, backup/restore, and deployment/privacy cautions.

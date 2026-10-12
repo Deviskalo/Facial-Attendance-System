@@ -1,6 +1,7 @@
 (function () {
   const video = document.getElementById("kiosk-video");
   const canvas = document.getElementById("kiosk-canvas");
+  const overlaysEl = document.getElementById("kiosk-overlays");
   const toastEl = document.getElementById("kiosk-toast");
   const clockEl = document.getElementById("kiosk-clock");
   const cameraStatusEl = document.getElementById("kiosk-camera-status");
@@ -58,6 +59,7 @@
     socket.onmessage = (ev) => {
       const data = JSON.parse(ev.data);
       lastOverlay = data;
+      updateOverlays();
       if (data.toast) showToast(data.toast);
     };
   }
@@ -78,24 +80,38 @@
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
+    updateOverlays();
+  }
+
+  function updateOverlays() {
     const data = lastOverlay;
     const fw = (data.frame_size && data.frame_size[0]) || canvas.width;
     const fh = (data.frame_size && data.frame_size[1]) || canvas.height;
-    const sx = canvas.width / fw;
-    const sy = canvas.height / fh;
-    (data.faces || []).forEach((face) => {
+    const bounds = overlaysEl.getBoundingClientRect();
+    if (!bounds.width || !bounds.height || !canvas.width || !canvas.height) return;
+    const scale = Math.max(bounds.width / canvas.width, bounds.height / canvas.height);
+    const offsetX = (bounds.width - canvas.width * scale) / 2;
+    const offsetY = (bounds.height - canvas.height * scale) / 2;
+    const boxes = (data.faces || []).map((face) => {
       const [x1, y1, x2, y2] = face.bbox;
-      const mirroredX1 = canvas.width - x2 * sx;
-      const mirroredX2 = canvas.width - x1 * sx;
-      ctx.strokeStyle = color(face.color);
-      ctx.lineWidth = 4;
-      ctx.strokeRect(mirroredX1, y1 * sy, mirroredX2 - mirroredX1, (y2 - y1) * sy);
+      const box = document.createElement("div");
+      const faceColor = color(face.color);
+      const mirroredLeft = canvas.width - x2 * canvas.width / fw;
+      box.className = "face-box";
+      box.style.setProperty("--face-color", faceColor);
+      box.style.left = `${offsetX + mirroredLeft * scale}px`;
+      box.style.top = `${offsetY + y1 * canvas.height / fh * scale}px`;
+      box.style.width = `${(x2 - x1) * canvas.width / fw * scale}px`;
+      box.style.height = `${(y2 - y1) * canvas.height / fh * scale}px`;
       if (face.name) {
-        ctx.fillStyle = color(face.color);
-        ctx.font = "24px Segoe UI";
-        ctx.fillText(face.name, mirroredX1, Math.max(28, y1 * sy - 10));
+        const label = document.createElement("span");
+        label.className = "face-box-label";
+        label.textContent = face.name;
+        box.appendChild(label);
       }
+      return box;
     });
+    overlaysEl.replaceChildren(...boxes);
   }
 
   async function startCamera() {

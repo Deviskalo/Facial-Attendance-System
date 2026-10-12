@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Attendance Kiosk</title>
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=kiosk-overlay-dom">
 </head>
 <body class="kiosk-body">
   <div class="kiosk-shell">
@@ -25,6 +25,7 @@
     <div class="stage">
       <video id="kiosk-video" playsinline autoplay muted></video>
       <canvas id="kiosk-canvas"></canvas>
+      <div id="kiosk-overlays" class="face-overlays" aria-hidden="true"></div>
       <div id="kiosk-toast" class="toast"></div>
     </div>
     <footer class="kiosk-bottom">
@@ -36,6 +37,6 @@
       <a href="/admin">Admin</a>
     </footer>
   </div>
-  <script src="/static/js/KioskStream.js"></script>
+  <script src="/static/js/KioskStream.js?v=kiosk-overlay-dom"></script>
 </body>
 </html>

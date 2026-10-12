@@ -40,8 +40,18 @@ button, input, select { font: inherit; }
 }
 .stage video, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .stage video { opacity: 0; }
+.face-overlays { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+.face-box {
+  position: absolute; border: 4px solid var(--face-color, var(--yellow));
+  box-sizing: border-box;
+}
+.face-box-label {
+  position: absolute; left: -4px; bottom: 100%; padding: 3px 7px;
+  background: var(--face-color, var(--yellow)); color: #07111f;
+  font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap;
+}
 .toast {
-  position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%);
+  position: absolute; z-index: 2; left: 50%; bottom: 28px; transform: translateX(-50%);
   padding: 14px 22px; border-radius: 999px; font-weight: 650; display: none;
   box-shadow: var(--shadow);
 }
