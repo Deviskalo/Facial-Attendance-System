@@ -51,6 +51,12 @@ These items describe the project foundation and current architecture; their orig
 - **Added:** Rollback handling for failures during the restore operation and clear success/error feedback in the Settings page.
 - **Documented behavior:** Restore replaces current attendance/enrollment data. The safety backup is retained locally; the admin should verify the configured backup folder and available disk space.
 
+## Initial Windows desktop wrapper — current development
+
+- **Added:** Optional `pywebview` desktop entry point and `desktop.bat`; the existing browser/LAN run scripts remain available.
+- **Changed:** Desktop startup launches the existing FastAPI application on loopback (`127.0.0.1`) using an available local port, opens the kiosk in an app window, and requests a server shutdown when the window closes.
+- **Not yet verified:** Camera permission and capture behavior across WebView2 installations, native window close behavior on target devices, and packaged installer/update flows. This wrapper is a development entry point, not a production installer.
+
 ## Documentation — current project state
 
 - **Added:** A user-facing `README.md` covering setup, use, local data locations, backup/restore, and deployment/privacy cautions.

@@ -53,6 +53,7 @@ For user-facing changes, verify the relevant workflow, including camera permissi
 - Validate uploaded files and user-controlled values at the server boundary; return clear errors without success-shaped fallbacks.
 - Preserve admin authentication on administrative pages and APIs.
 - Maintain Windows and Unix-like script support when changing setup or launch behavior. Do not assume a shell, path separator, or package manager is universal.
+- Keep desktop support optional and preserve the existing browser/LAN startup path. Desktop startup should bind to loopback unless LAN mode is explicitly selected.
 - Avoid adding dependencies unless they are necessary and documented in `requirements.txt`.
 
 ## Pull request checklist

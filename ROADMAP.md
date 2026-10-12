@@ -30,6 +30,8 @@ This document is a proposed direction for the project, not a release schedule or
 
 ## Longer term: deployment and maintainability
 
+- Validate the initial Windows desktop wrapper on supported WebView2 installations, especially camera permission prompts, camera capture, server shutdown, and behavior when the configured data directory is not writable.
+- Package a signed Windows installer with a stable per-user data directory and a documented upgrade/backup path.
 - Evaluate support for multiple kiosks sharing one managed local installation, with explicit concurrency and device ownership rules.
 - Improve platform-specific dependency installation and provide a verified compatibility matrix for supported Python and operating-system versions.
 - Add accessibility and usability reviews for kiosk placement, keyboard navigation, readable status messaging, and localization readiness.

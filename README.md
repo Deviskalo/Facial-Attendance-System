@@ -39,6 +39,14 @@ Run commands from the project directory.
 .\run.bat
 ```
 
+For the experimental Windows desktop window, use:
+
+```powershell
+.\desktop.bat
+```
+
+The desktop launcher installs the optional dependency listed in `requirements-desktop.txt` when needed, starts the same application on a loopback-only ephemeral port, and opens the kiosk in a native window. Close the window to stop its local server. This is an initial wrapper, not a signed installer; camera permission behavior depends on the installed WebView2 runtime and must be verified on the target machine. Use `run.bat` to retain the existing browser/LAN mode.
+
 ### Linux or macOS
 
 ```bash
@@ -98,8 +106,10 @@ frontend/static/         CSS and browser JavaScript
 data/                    Local database, face assets, cache, and backups (not committed)
 models/                  Locally downloaded face-recognition model (not committed)
 requirements.txt         Python dependencies
+requirements-desktop.txt Optional PyWebView desktop dependency set
 setup.bat / setup.sh     Environment and dependency setup
 run.bat / run.sh         Application launchers
+desktop.bat              Experimental Windows desktop launcher
 ```
 
 ## Development and verification
