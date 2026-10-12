@@ -23,6 +23,19 @@ for package in (
     datas += package_datas
     binaries += package_binaries
     hiddenimports += package_imports
+    if package == "insightface":
+        object_data = [
+            (source, "objects")
+            for source, _ in package_datas
+            if Path(source).name == "meanshape_68.pkl"
+        ]
+        if not object_data:
+            raise RuntimeError(
+                "InsightFace's meanshape_68.pkl data file was not found."
+            )
+        datas += object_data
+
+hiddenimports += ["backend.main"]
 
 for package in ("insightface", "pywebview", "uvicorn"):
     datas += copy_metadata(package)

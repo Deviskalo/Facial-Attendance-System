@@ -36,6 +36,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist release\windows\FaceAttendanceKiosk\_internal\objects\meanshape_68.pkl (
+  echo The frozen app is missing InsightFace's required meanshape_68.pkl resource.
+  echo Review packaging\FaceAttendanceKiosk.spec and rebuild.
+  exit /b 1
+)
+
 where ISCC.exe >nul 2>&1
 if errorlevel 1 (
   echo.
