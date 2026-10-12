@@ -61,7 +61,7 @@ These items describe the project foundation and current architecture; their orig
 
 - **Changed:** Kiosk face boxes and labels are HTML overlays positioned above the mirrored video canvas rather than canvas strokes, to address the missing recognition box observed in WebView.
 - **Changed:** Overlay positions account for the cover-cropped kiosk preview, and kiosk asset URLs include a cache-busting version.
-- **Not yet verified:** The user needs to confirm the green recognition box appears in their WebView after reloading the updated desktop app.
+- **Verified by user:** The green recognition box now appears in the WebView after the overlay change.
 
 ## Documentation — current project state
 
