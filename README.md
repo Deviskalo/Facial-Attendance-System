@@ -47,6 +47,19 @@ For the experimental Windows desktop window, use:
 
 The desktop launcher installs the optional dependency listed in `requirements-desktop.txt` when needed, starts the same application on a loopback-only ephemeral port, and opens the kiosk in a native window. Its launcher limits BLAS/OpenMP worker threads to reduce resource pressure during face-model startup. Close the window to stop its local server. This is an initial wrapper, not a signed installer; camera permission behavior depends on the installed WebView2 runtime and must be verified on the target machine. Use `run.bat` to retain the existing browser/LAN mode.
 
+### Build the Windows installer
+
+The installer is built locally and does not include InsightFace model weights or application data. On a Windows x64 build machine with Python 3.10 or newer, run:
+
+```powershell
+.\setup.bat
+.\packaging\build_windows.bat
+```
+
+The build script installs the optional desktop and PyInstaller requirements into `.venv` and creates the application directory under `release\windows`. Install Inno Setup 6 and ensure `ISCC.exe` is on `PATH` to also create the installer under `release\installer`. Without Inno Setup, the application directory is still produced and can be compiled later using `packaging\FaceAttendanceKiosk.iss`.
+
+The packaged desktop app needs internet access on first launch to download the InsightFace `buffalo_l` model. The download is stored per-user at `%LOCALAPPDATA%\FaceAttendanceKiosk\insightface` and reused on later launches; it is not installed into the application directory. The WebView2 Runtime must also be available on the target computer. The model is third-party software with its own terms; review InsightFace's model license and permitted-use conditions before use or redistribution. The generated installer is not code-signed.
+
 ### Linux or macOS
 
 ```bash

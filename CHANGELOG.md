@@ -82,6 +82,13 @@ These items describe the project foundation and current architecture; their orig
 - **Added:** `ROADMAP.md` separating implemented capabilities from proposed future work.
 - **Added:** This changelog to record the documented project milestones and their verification limits.
 
+## Windows installer preparation — current development
+
+- **Added:** A PyInstaller onedir spec and a Windows build script that can produce the application directory and, when Inno Setup 6 is installed, a per-user installer.
+- **Changed:** Desktop-mode InsightFace model storage is under the per-user application-data directory so first-run model downloads do not target the install directory.
+- **Documented behavior:** Model weights and user attendance data are intentionally excluded from the installer. The model downloads on first app launch and is reused from the per-user model cache.
+- **Not yet verified:** PyInstaller build, Inno Setup compilation, first-run model download from the packaged app, and installer behavior on a clean Windows profile. The build was not run because the available Windows host had very little free physical memory and lacked the packaging tools.
+
 ## Current state
 
 The current project is a local FastAPI/Jinja2 face-attendance application with Windows and Unix-like setup/launch scripts, a kiosk, password-protected admin pages, five-pose enrollment, SQLite attendance and correction auditing, CSV/Excel exports, local scheduled/manual backups, and admin backup restore.

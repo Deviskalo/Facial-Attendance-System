@@ -34,7 +34,7 @@ DESKTOP_MODE = os.environ.get("ATTENDANCE_DESKTOP") == "1"
 DATA_DIR = _desktop_data_directory() if DESKTOP_MODE else LEGACY_DATA_DIR
 FACES_DIR = DATA_DIR / "faces"
 BACKUPS_DIR = DATA_DIR / "backups"
-MODELS_ROOT = ROOT_DIR  # InsightFace stores weights in {root}/models/buffalo_l
+MODELS_ROOT = DATA_DIR / "insightface" if DESKTOP_MODE else ROOT_DIR
 DB_PATH = DATA_DIR / "attendance.db"
 EMBEDDINGS_PATH = DATA_DIR / "embeddings.npy"
 EMBEDDING_IDS_PATH = DATA_DIR / "embedding_ids.json"
