@@ -1,0 +1,63 @@
+{% extends "public/base.html" %}
+{% block title %}Desktop app{% endblock %}
+{% block description %}Desktop app availability, requirements, and instructions for the Face Attendance Kiosk.{% endblock %}
+{% block content %}
+<section class="document-hero">
+  <p class="eyebrow">WINDOWS DESKTOP APP</p>
+  <h1>Run the kiosk in its own desktop window.</h1>
+  <p class="hero-lede">The desktop launcher runs the local server on this computer and opens the kiosk in a native WebView window.</p>
+</section>
+<section class="availability-card">
+  <span class="availability-indicator" aria-hidden="true"></span>
+  <div id="release-status" aria-live="polite">
+    <strong id="release-title">Checking for the latest signed Windows installer…</strong>
+    <p id="release-description">This page checks the latest published GitHub release for a Windows installer.</p>
+    <div class="release-actions">
+      <a id="release-download" class="btn hidden" href="#" download>Download desktop app</a>
+      <a id="release-notes" class="btn secondary" href="https://github.com/Deviskalo/Facial-Attendance-System/releases" target="_blank" rel="noopener noreferrer">View GitHub releases</a>
+    </div>
+  </div>
+</section>
+<div class="download-grid">
+  <article class="destination-card">
+    <span class="card-kicker">RUN FROM SOURCE</span>
+    <h2>Use the desktop launcher</h2>
+    <ol>
+      <li>Install Python 3.10 or newer.</li>
+      <li>Download or clone the project source.</li>
+      <li>Run <code>setup.bat</code>, then run <code>desktop.bat</code>.</li>
+      <li>On first launch, allow internet access to download the face-recognition model. WebView2 Runtime is also required.</li>
+    </ol>
+    <p class="muted">The desktop launcher installs its optional dependencies in the project-local virtual environment.</p>
+  </article>
+  <article class="destination-card">
+    <span class="card-kicker">BUILD AN INSTALLER</span>
+    <h2>Build locally</h2>
+    <p>On a Windows x64 build machine with Python 3.10 or newer, run:</p>
+    <pre><code>.\setup.bat
+.\packaging\build_windows.bat</code></pre>
+    <p>The script creates an application directory under <code>release\windows</code>. Install Inno Setup 6 and add <code>ISCC.exe</code> to PATH to compile an installer. Sign the installer before distribution.</p>
+  </article>
+</div>
+<p class="download-caution">The installer does not include application data or the InsightFace model. Model files and third-party components have separate terms; review their licenses and permitted-use conditions before deployment or redistribution.</p>
+<section class="release-guide">
+  <p class="eyebrow">PUBLISH A RELEASE</p>
+  <h2>From signed build to GitHub download</h2>
+  <ol>
+    <li>Update <code>AppVersion</code> in <code>packaging\FaceAttendanceKiosk.iss</code>, then build on Windows with <code>setup.bat</code> and <code>packaging\build_windows.bat</code>.</li>
+    <li>Sign <code>release\windows\FaceAttendanceKiosk\FaceAttendanceKiosk.exe</code> with your organization’s trusted code-signing certificate, then compile the installer with <code>ISCC.exe packaging\FaceAttendanceKiosk.iss</code> so the signed app is included.</li>
+    <li>Sign <code>release\installer\FaceAttendanceKiosk-Setup-&lt;version&gt;-x64.exe</code>. Use SHA-256 for the file digest and an RFC 3161 trusted timestamp. Keep the private key out of the repository.</li>
+    <li>Verify both Authenticode signatures and the publisher in Windows, then test install, launch, camera access, upgrade, and uninstall on a clean Windows machine.</li>
+    <li>Commit and push the version change. Create and push a matching version tag, for example <code>v1.2.0</code>.</li>
+    <li>On GitHub, create a release for that tag and upload the signed installer with a filename containing <code>Setup</code> and ending in <code>.exe</code>. Add release notes describing changes and known requirements.</li>
+  </ol>
+  <p>With Microsoft SignTool available, the signing commands follow this pattern (replace the paths and use your trusted timestamp provider):</p>
+  <pre><code>signtool sign /fd SHA256 /tr https://timestamp.digicert.com /td SHA256 /a "path\to\FaceAttendanceKiosk.exe"
+signtool verify /pa /v "path\to\FaceAttendanceKiosk.exe"</code></pre>
+  <p>After compiling, repeat those commands for the <code>FaceAttendanceKiosk-Setup-&lt;version&gt;-x64.exe</code> installer and verify it as well.</p>
+  <p class="muted">After a published release is available, this page automatically links to the installer asset in the latest non-draft, non-prerelease GitHub release. If no matching installer is attached, it links to the releases list instead.</p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/LatestRelease.js"></script>
+{% endblock %}

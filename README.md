@@ -8,6 +8,7 @@ The application processes camera frames and stores attendance and enrollment dat
 
 ## Features
 
+- Public home, About, Privacy, Terms, and desktop-app information pages.
 - Live kiosk with camera and attendance-service status, recognition feedback, and check-in/check-out handling.
 - Admin setup and password-protected dashboard with live activity, daily attendance metrics, and department summaries.
 - Five-pose enrollment workflow with frame quality checks and duplicate-face detection.
@@ -58,7 +59,20 @@ The installer is built locally and does not include InsightFace model weights or
 
 The build script installs the optional desktop and PyInstaller requirements into `.venv` and creates the application directory under `release\windows`. Install Inno Setup 6 and ensure `ISCC.exe` is on `PATH` to also create the installer under `release\installer`. Without Inno Setup, the application directory is still produced and can be compiled later using `packaging\FaceAttendanceKiosk.iss`.
 
-The packaged desktop app needs internet access on first launch to download the InsightFace `buffalo_l` model. The download is stored per-user at `%LOCALAPPDATA%\FaceAttendanceKiosk\insightface` and reused on later launches; it is not installed into the application directory. The WebView2 Runtime must also be available on the target computer. The model is third-party software with its own terms; review InsightFace's model license and permitted-use conditions before use or redistribution. The generated installer is not code-signed.
+The packaged desktop app needs internet access on first launch to download the InsightFace `buffalo_l` model. The download is stored per-user at `%LOCALAPPDATA%\FaceAttendanceKiosk\insightface` and reused on later launches; it is not installed into the application directory. The WebView2 Runtime must also be available on the target computer. The model is third-party software with its own terms; review InsightFace's model license and permitted-use conditions before use or redistribution. The installer produced by the build script is unsigned by default; follow the signing steps below before distribution.
+
+### Signing and publishing a Windows release
+
+Use a trusted organization code-signing certificate and keep its private key and any password out of source control and release assets. On a Windows build machine:
+
+1. Set the release version in `#define AppVersion` in `packaging/FaceAttendanceKiosk.iss`, commit the version change, and build using the commands above.
+2. Sign `release/windows/FaceAttendanceKiosk/FaceAttendanceKiosk.exe` with Microsoft SignTool and the organization's certificate. Use SHA-256 (`/fd SHA256`) and a trusted RFC 3161 timestamp (`/tr <timestamp-url> /td SHA256`).
+3. Recompile the installer with `ISCC.exe packaging/FaceAttendanceKiosk.iss` so it contains the signed app executable.
+4. Sign the generated `release/installer/FaceAttendanceKiosk-Setup-<version>-x64.exe` using the same digest and timestamp settings. Verify both signatures with `signtool verify /pa /v <file>` and confirm the publisher shown by Windows is correct.
+5. Test the signed installer on a clean supported Windows machine, including install, first launch/model download, camera operation, upgrade, and uninstall. Do not publish an artifact that has not passed these checks.
+6. Push the release commit and create a matching version tag, for example `git tag -a v1.2.0 -m "Release v1.2.0"` followed by `git push origin v1.2.0`. On GitHub, choose **Releases → Draft a new release**, select that tag, add release notes, upload the signed installer, and publish. Attach the exact `FaceAttendanceKiosk-Setup-<version>-x64.exe` artifact; do not upload certificates or private keys.
+
+The public `/download` page checks GitHub's public latest-release API and provides a direct link to a `.exe` release asset whose filename contains `Setup`. It shows the releases list if there is no published latest release, if that release has no matching installer, or if GitHub cannot be reached. Publish only the signed installer after verifying it; the page selects by asset filename and does not independently validate the Authenticode signature.
 
 ### Linux or macOS
 
@@ -80,6 +94,8 @@ On first visit, the admin page redirects to setup. Create the administrator pass
 To stop the server, press `Ctrl+C` in the terminal where it is running.
 
 ## Using the system
+
+Open `/` for the public home page. It links to the admin dashboard, kiosk, and the About, Privacy, Terms, and desktop-app information pages.
 
 1. **Prepare the kiosk:** Open `/kiosk` in a browser and allow camera access. Keep the server process running.
 2. **Set up administration:** Open `/admin`, create the initial administrator password, and sign in.

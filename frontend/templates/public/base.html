@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="{% block description %}A local-first face attendance system for managed workplace kiosks.{% endblock %}"
+    />
+    <title>
+      {% block title %}Face Attendance{% endblock %} · Face Attendance Kiosk
+    </title>
+    <link rel="stylesheet" href="/static/css/app.css" />
+  </head>
+  <body class="public-body">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="public-header">
+      <a class="public-brand" href="/" aria-label="Face Attendance home">
+        <span class="brand-mark" aria-hidden="true">FA</span>
+        <span>Face Attendance Kiosk</span>
+      </a>
+      <nav class="public-nav" aria-label="Main navigation">
+        <a href="/about">About</a>
+        <a href="/download">Desktop app</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a class="btn secondary" href="/admin">Admin</a>
+        <a class="btn" href="/kiosk">Open kiosk</a>
+      </nav>
+    </header>
+    <main id="main-content" class="public-main">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="public-footer">
+      <a class="public-brand" href="/">Face Attendance Kiosk</a>
+      <span
+        >Local-first attendance, with biometric data kept on the host by
+        default.</span
+      >
+      <nav aria-label="Legal and project information">
+        <a href="/about">About</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/download">Desktop app</a>
+      </nav>
+    </footer>
+    {% block scripts %}{% endblock %}
+  </body>
+  </html>

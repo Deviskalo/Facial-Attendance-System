@@ -1,0 +1,58 @@
+{% extends "public/base.html" %} {% block title %}About{% endblock %} {% block
+description %}Learn how the local-first Face Attendance system works and what it
+provides.{% endblock %} {% block content %}
+<section class="document-hero">
+  <p class="eyebrow">ABOUT THE PROJECT</p>
+  <h1>Attendance tools that run where you do.</h1>
+  <p class="hero-lede">
+    Face Attendance is a self-hosted application for workplace attendance
+    workflows. It combines a camera kiosk with guided enrollment and
+    password-protected administration.
+  </p>
+</section>
+<div class="document-layout">
+  <article class="document-content">
+    <h2>How it works</h2>
+    <ol>
+      <li>
+        An administrator creates the admin password and configures attendance
+        settings.
+      </li>
+      <li>
+        People are enrolled using a guided five-pose capture and quality checks.
+      </li>
+      <li>
+        The kiosk analyzes camera frames locally and records check-in or
+        check-out events in the local database.
+      </li>
+      <li>
+        Administrators review logs, export records, and create or restore local
+        backups.
+      </li>
+    </ol>
+    <h2>Local-first by design</h2>
+    <p>
+      The application uses FastAPI, SQLite, OpenCV, and InsightFace. Normal
+      attendance and face processing run on the host machine; the application
+      does not require a hosted service for normal operation. Initial setup may
+      need internet access to install dependencies and download the recognition
+      model.
+    </p>
+    <h2>Deployment matters</h2>
+    <p>
+      The default server is intended for an access-controlled local network, not
+      direct public-internet exposure. Camera access in a browser requires a
+      secure context such as HTTPS or localhost. Read the
+      <a href="/privacy">privacy information</a> and
+      <a href="/terms">terms</a> before putting the system into use.
+    </p>
+  </article>
+  <aside class="document-aside">
+    <h2>Explore</h2>
+    <a href="/admin">Admin dashboard</a>
+    <a href="/kiosk">Attendance kiosk</a>
+    <a href="/download">Desktop app instructions</a>
+    <a href="/privacy">Privacy information</a>
+  </aside>
+</div>
+{% endblock %}

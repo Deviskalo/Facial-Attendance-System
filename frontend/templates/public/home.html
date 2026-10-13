@@ -1,0 +1,64 @@
+{% extends "public/base.html" %}
+{% block title %}Home{% endblock %}
+{% block description %}Choose the admin dashboard or attendance kiosk, learn about local-first face attendance, or view desktop setup instructions.{% endblock %}
+{% block content %}
+<section class="public-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">LOCAL-FIRST ATTENDANCE</p>
+    <h1>Attendance, handled on your terms.</h1>
+    <p class="hero-lede">A self-hosted face-attendance system with a live kiosk, guided enrollment, and an admin dashboard. Attendance records and biometric data are stored on the machine running the app by default.</p>
+    <div class="hero-actions">
+      <a class="btn" href="/admin">Go to admin</a>
+      <a class="btn secondary" href="/kiosk">Open the kiosk</a>
+    </div>
+    <p class="hero-note">Use the kiosk on a device with camera access. Browsers require HTTPS or localhost for camera access.</p>
+  </div>
+  <div class="hero-panel" aria-label="System overview">
+    <div class="hero-panel-top"><span class="live-indicator"></span> RUNNING LOCALLY</div>
+    <div class="hero-panel-title">One system. Three steps.</div>
+    <ol class="hero-steps">
+      <li><span>01</span><div><strong>Set up</strong><small>Configure the admin account and attendance rules.</small></div></li>
+      <li><span>02</span><div><strong>Enroll</strong><small>Add people with the guided five-pose workflow.</small></div></li>
+      <li><span>03</span><div><strong>Check in</strong><small>Use the kiosk to record attendance locally.</small></div></li>
+    </ol>
+    <a href="/about" class="text-link">Learn how it works <span aria-hidden="true">→</span></a>
+  </div>
+</section>
+
+<section class="public-section">
+  <div class="section-heading">
+    <p class="eyebrow">GET STARTED</p>
+    <h2>Choose where to go</h2>
+    <p>Open an existing part of the running system, or read about using the optional desktop app.</p>
+  </div>
+  <div class="destination-grid">
+    <article class="destination-card">
+      <span class="card-kicker">MANAGE THE SYSTEM</span>
+      <h3>Admin dashboard</h3>
+      <p>Set up or sign in to manage people, settings, attendance logs, and local backups.</p>
+      <a class="text-link" href="/admin">Open admin <span aria-hidden="true">→</span></a>
+    </article>
+    <article class="destination-card">
+      <span class="card-kicker">RECORD ATTENDANCE</span>
+      <h3>Attendance kiosk</h3>
+      <p>Open the live camera kiosk on a supported device and allow camera access when prompted.</p>
+      <a class="text-link" href="/kiosk">Open kiosk <span aria-hidden="true">→</span></a>
+    </article>
+    <article class="destination-card">
+      <span class="card-kicker">RUN ON WINDOWS</span>
+      <h3>Desktop app</h3>
+      <p>See current installer availability, system requirements, and instructions for running or building the desktop app.</p>
+      <a class="text-link" href="/download">Desktop app info <span aria-hidden="true">→</span></a>
+    </article>
+  </div>
+</section>
+
+<section class="public-callout">
+  <div>
+    <p class="eyebrow">DESIGNED FOR LOCAL CONTROL</p>
+    <h2>Biometric data deserves careful handling.</h2>
+    <p>Face images and embeddings are sensitive. Review where data is stored, get appropriate consent and authorization, and set retention and backup practices before deployment.</p>
+  </div>
+  <a class="btn secondary" href="/privacy">Read privacy information</a>
+</section>
+{% endblock %}

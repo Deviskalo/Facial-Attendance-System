@@ -1,0 +1,32 @@
+{% extends "public/base.html" %}
+{% block title %}Privacy{% endblock %}
+{% block description %}Privacy information about attendance records, face images, embeddings, backups, and local processing.{% endblock %}
+{% block content %}
+<section class="document-hero">
+  <p class="eyebrow">PRIVACY INFORMATION</p>
+  <h1>Know what is collected and where it lives.</h1>
+  <p class="hero-lede">This page describes the application's default behavior. The organization operating the system is responsible for its deployment, notices, consent, retention, and legal compliance.</p>
+</section>
+<div class="document-layout">
+  <article class="document-content">
+    <h2>Information the system stores</h2>
+    <p>Depending on how it is used, the application stores employee names, IDs and departments; attendance events and correction history; administrator settings; face images captured during enrollment; and face embeddings used for matching. Face images and embeddings are sensitive biometric data.</p>
+    <h2>Where information is stored</h2>
+    <p>Browser/LAN mode stores data in the application's <code>data/</code> directory on the server host. Desktop mode stores data in the current user's application-data directory (on Windows, <code>%LOCALAPPDATA%\FaceAttendanceKiosk</code>). Local ZIP backups can contain the database and biometric face assets. Anyone with access to these files may access sensitive information.</p>
+    <h2>Processing and network access</h2>
+    <p>During normal operation, camera frames are sent from the kiosk browser to the application server for local face processing. The application is designed to process attendance locally and does not require a hosted service. Internet access may be used during setup to install software dependencies and obtain the face-recognition model. If an operator configures a reverse proxy, remote access, or other integrations, those systems may affect how information is transmitted.</p>
+    <h2>Camera and browser data</h2>
+    <p>The kiosk requests camera access while in use. The browser controls the permission prompt. The application also uses a session cookie to support administrator sign-in. The public information pages do not require sign-in.</p>
+    <h2>Retention, access, and deletion</h2>
+    <p>The organization operating the system should define who can use the admin account, how long records and biometric data are kept, how they are deleted, and how backups are protected. The app provides local backup and restore features; deleting or replacing live data does not automatically remove copies kept in backup archives.</p>
+    <h2>Questions and updates</h2>
+    <p>Contact the organization that operates this installation for questions about a person's data or to request access or deletion. This page describes software behavior and is not legal advice or a substitute for an organization-specific privacy notice.</p>
+    <p class="document-updated">Last updated: October 13, 2026</p>
+  </article>
+  <aside class="document-aside warning-aside">
+    <h2>Before deployment</h2>
+    <p>Obtain appropriate consent and authorization. Restrict access to the host and network, secure backup archives, and establish a lawful retention and deletion process.</p>
+    <a href="/terms">Read terms of use</a>
+  </aside>
+</div>
+{% endblock %}

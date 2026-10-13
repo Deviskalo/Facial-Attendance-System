@@ -1,0 +1,30 @@
+{% extends "public/base.html" %}
+{% block title %}Terms{% endblock %}
+{% block description %}Terms and responsible-use information for operating the Face Attendance application.{% endblock %}
+{% block content %}
+<section class="document-hero">
+  <p class="eyebrow">TERMS AND RESPONSIBLE USE</p>
+  <h1>Operate the system responsibly.</h1>
+  <p class="hero-lede">These general terms explain the responsibilities involved in using this software. They are not a legal agreement tailored to a particular organization or jurisdiction.</p>
+</section>
+<div class="document-layout">
+  <article class="document-content">
+    <h2>Use and authorization</h2>
+    <p>Use this application only on systems and networks you are authorized to administer. The organization deploying it is responsible for deciding whether face-based attendance is appropriate and for providing required notices and obtaining consent or other lawful authorization before collecting biometric or employment-related information.</p>
+    <h2>Compliance and individual rights</h2>
+    <p>Follow applicable privacy, biometric-data, employment, accessibility, and record-retention requirements. Establish a process for responding to requests concerning attendance records and biometric data, and define retention and deletion periods before enrollment begins.</p>
+    <h2>Security and backups</h2>
+    <p>Protect the host device, administrator credentials, network access, database, face images, embeddings, exports, and backup archives. Do not expose the default HTTP server directly to the public internet. Validate backup and restore procedures, and remember that backup copies may retain data after it is removed from the active database.</p>
+    <h2>Third-party components</h2>
+    <p>The application depends on third-party software and face-recognition model files, which may have separate licenses and terms. Review those terms, including any permitted-use limits, before deploying or redistributing the application or model.</p>
+    <h2>No legal or accuracy guarantee</h2>
+    <p>This project provides software tools, not legal advice, employment advice, or a guarantee that automated face matching will be accurate or suitable for a particular decision. Provide an appropriate alternative and review process for cases where face recognition is unavailable or produces an incorrect result.</p>
+    <p class="document-updated">Last updated: October 13, 2026</p>
+  </article>
+  <aside class="document-aside warning-aside">
+    <h2>Deployment notice</h2>
+    <p>These general project terms should be reviewed and adapted by the organization deploying the software before it is used in production.</p>
+    <a href="/privacy">Read privacy information</a>
+  </aside>
+</div>
+{% endblock %}

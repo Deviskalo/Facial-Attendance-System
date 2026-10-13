@@ -244,8 +244,28 @@ async def _require_ws_admin(ws: WebSocket) -> bool:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def root() -> RedirectResponse:
-    return RedirectResponse("/kiosk", status_code=302)
+async def root(request: Request) -> HTMLResponse:
+    return _render(request, "public/home.html")
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about(request: Request) -> HTMLResponse:
+    return _render(request, "public/about.html")
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request) -> HTMLResponse:
+    return _render(request, "public/privacy.html")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms(request: Request) -> HTMLResponse:
+    return _render(request, "public/terms.html")
+
+
+@app.get("/download", response_class=HTMLResponse)
+async def download(request: Request) -> HTMLResponse:
+    return _render(request, "public/download.html")
 
 
 @app.get("/kiosk", response_class=HTMLResponse)
