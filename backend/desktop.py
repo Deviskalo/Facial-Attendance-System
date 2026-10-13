@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shutil
 import socket
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Protocol
 
 os.environ["ATTENDANCE_DESKTOP"] = "1"
@@ -25,7 +27,23 @@ class UvicornServer(Protocol):
     async def serve(self, sockets: list[socket.socket]) -> None: ...
 
 
+class WebviewWindow(Protocol):
+    def create_file_dialog(
+        self,
+        dialog_type: int,
+        *,
+        save_filename: str,
+        file_types: tuple[str, ...],
+    ) -> Sequence[str] | None: ...
+
+
+class WebviewFileDialog(Protocol):
+    SAVE: int
+
+
 class WebviewAPI(Protocol):
+    FileDialog: WebviewFileDialog
+
     def create_window(
         self,
         title: str,
@@ -35,9 +53,36 @@ class WebviewAPI(Protocol):
         height: int,
         min_size: tuple[int, int],
         text_select: bool,
-    ) -> object: ...
+        js_api: object,
+    ) -> WebviewWindow | None: ...
 
     def start(self, *, debug: bool) -> None: ...
+
+
+class DesktopAPI:
+    def __init__(self, save_dialog_type: int) -> None:
+        self.save_dialog_type = save_dialog_type
+        self.window: WebviewWindow | None = None
+
+    def save_backup(self, ticket: str) -> str | None:
+        from backend.main import consume_desktop_backup_export
+
+        archive = consume_desktop_backup_export(ticket)
+        if self.window is None:
+            raise RuntimeError("The desktop window is not ready to save files.")
+
+        destinations = self.window.create_file_dialog(
+            self.save_dialog_type,
+            save_filename=archive.name,
+            file_types=("ZIP backup (*.zip)",),
+        )
+        if not destinations:
+            return None
+
+        destination = Path(destinations[0])
+        if destination.resolve() != archive.resolve():
+            shutil.copy2(archive, destination)
+        return destination.name
 
 
 def _create_local_listener() -> tuple[socket.socket, int]:
@@ -130,14 +175,19 @@ def run_desktop(
         _wait_for_server(server, server_thread, startup_error)
         url = f"http://127.0.0.1:{port}/kiosk"
         print(f"Opening desktop kiosk at {url}")
-        webview_module.create_window(
+        desktop_api = DesktopAPI(webview_module.FileDialog.SAVE)
+        window = webview_module.create_window(
             "Face Attendance Kiosk",
             url,
             width=1280,
             height=800,
             min_size=(960, 640),
             text_select=True,
+            js_api=desktop_api,
         )
+        if window is None:
+            raise RuntimeError("Could not initialize the desktop application window.")
+        desktop_api.window = window
         webview_module.start(debug=False)
     finally:
         server.should_exit = True

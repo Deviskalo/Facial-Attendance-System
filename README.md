@@ -73,6 +73,8 @@ The launcher starts Uvicorn on port `8000`, bound to `0.0.0.0`, and prints kiosk
 - Kiosk: `http://<host-ip>:8000/kiosk`
 - Admin: `http://<host-ip>:8000/admin`
 
+Browsers only allow camera access from secure contexts. The plain-HTTP LAN kiosk URL will not have camera access in a browser on another device. For a browser on the same computer as the server, open `http://localhost:8000/kiosk`; for another device, put the app behind HTTPS with a certificate trusted by that device. The desktop app uses loopback and does not require the LAN HTTP URL.
+
 On first visit, the admin page redirects to setup. Create the administrator password there, then use it to sign in. The current password minimum is six characters; choose a long, unique password instead.
 
 To stop the server, press `Ctrl+C` in the terminal where it is running.
@@ -84,7 +86,7 @@ To stop the server, press `Ctrl+C` in the terminal where it is running.
 3. **Enroll people:** Choose **People → Add person**, enter the employee information, and follow the guided five-pose camera capture.
 4. **Record attendance:** Keep the kiosk open for people to check in/out. Configure office start time, late margin, cooldown, checkout gap, and recognition threshold in **Settings**.
 5. **Review records:** Use **Logs** to filter attendance, export CSV/XLSX, make justified manual corrections, and review/export the correction history.
-6. **Protect local data:** Download a backup or configure automatic backup interval, retention, and directory in **Settings**. To restore, select a backup ZIP there and confirm. Restore replaces the current records and face assets; the application creates a safety backup first.
+6. **Protect local data:** Download a backup or configure automatic backup interval, retention, and directory in **Settings**. In the desktop app, the download button opens a Save As dialog for the backup ZIP. To restore, select a backup ZIP there and confirm. Restore replaces the current records and face assets; the application creates a safety backup first.
 
 ## Data and privacy
 

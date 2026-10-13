@@ -115,8 +115,13 @@
   }
 
   async function startCamera() {
+    if (!window.isSecureContext) {
+      throw new Error(
+        "This page is using HTTP on a network address. Use the desktop app, open it on this computer via localhost, or serve it over HTTPS for other devices."
+      );
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error("Camera access requires HTTPS or localhost in a supported browser.");
+      throw new Error("Camera access is unavailable in this browser.");
     }
     setStatus(cameraStatusEl, "warning", "Starting camera");
     cameraStream = await navigator.mediaDevices.getUserMedia({
@@ -161,7 +166,7 @@
   connect();
   startCamera().catch((err) => {
     setStatus(cameraStatusEl, "error", "Camera unavailable");
-    toastEl.textContent = "Camera permission required: " + err.message;
+    toastEl.textContent = "Camera unavailable: " + err.message;
     toastEl.className = "toast show late";
   });
 })();

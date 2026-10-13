@@ -6,10 +6,13 @@ import csv
 import io
 import json
 import logging
+import secrets
+import threading
 import time
 import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 import cv2
@@ -48,6 +51,7 @@ from backend.auth import (
     set_admin_password,
 )
 from backend.config import (
+    DESKTOP_MODE,
     FACES_DIR,
     POSE_INSTRUCTIONS,
     POSE_LABELS,
@@ -70,6 +74,8 @@ rebuild_match_cache()
 
 logger = logging.getLogger(__name__)
 backup_operation_lock = asyncio.Lock()
+_backup_export_tickets: dict[str, tuple[Path, float]] = {}
+_backup_export_tickets_lock = threading.Lock()
 
 
 def _backup_preferences() -> tuple[bool, int, int, str]:
@@ -79,6 +85,28 @@ def _backup_preferences() -> tuple[bool, int, int, str]:
     retention_count = int(settings.get("backup_retention_count", "14"))
     directory = settings.get("backup_directory") or str(backups.BACKUPS_DIR)
     return enabled, interval_hours, retention_count, directory
+
+
+def consume_desktop_backup_export(ticket: str) -> Path:
+    if not DESKTOP_MODE:
+        raise RuntimeError("Desktop backup export is not available.")
+
+    now = time.monotonic()
+    with _backup_export_tickets_lock:
+        expired = [
+            key for key, (_, expires_at) in _backup_export_tickets.items()
+            if expires_at <= now
+        ]
+        for key in expired:
+            del _backup_export_tickets[key]
+        export = _backup_export_tickets.pop(ticket, None)
+
+    if export is None:
+        raise ValueError("This backup export request has expired. Please try again.")
+    archive, _ = export
+    if not archive.is_file():
+        raise FileNotFoundError("The backup archive is no longer available.")
+    return archive
 
 
 async def _automatic_backup_loop() -> None:
@@ -631,6 +659,32 @@ async def api_backup(request: Request):
         media_type="application/zip",
         filename=archive.name,
     )
+
+
+@app.get("/api/backup/export")
+async def api_backup_export(request: Request):
+    if not DESKTOP_MODE:
+        raise HTTPException(404, "Desktop backup export is not available.")
+    if denied := _deny_api(request):
+        return denied
+    _, _, retention_count, directory = _backup_preferences()
+    async with backup_operation_lock:
+        archive = await asyncio.to_thread(backups.create_backup, directory)
+        await asyncio.to_thread(
+            backups.prune_backups, directory, retention_count
+        )
+
+    ticket = secrets.token_urlsafe(32)
+    now = time.monotonic()
+    with _backup_export_tickets_lock:
+        expired = [
+            key for key, (_, expires_at) in _backup_export_tickets.items()
+            if expires_at <= now
+        ]
+        for key in expired:
+            del _backup_export_tickets[key]
+        _backup_export_tickets[ticket] = (archive, now + 300)
+    return {"ticket": ticket, "filename": archive.name}
 
 
 @app.post("/api/backup/restore")
