@@ -1,6 +1,6 @@
 #define AppName "Face Attendance Kiosk"
 #define AppVersion "0.1.0"
-#define AppPublisher "Face Attendance Kiosk Project"
+#define AppPublisher "Iskalo Tech Inc."
 #define AppExeName "FaceAttendanceKiosk.exe"
 
 [Setup]
