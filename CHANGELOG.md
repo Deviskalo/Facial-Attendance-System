@@ -63,6 +63,15 @@ These items describe the project foundation and current architecture; their orig
 - **Changed:** Overlay positions account for the cover-cropped kiosk preview, and kiosk asset URLs include a cache-busting version.
 - **Verified by user:** The green recognition box now appears in the WebView after the overlay change.
 
+## School attendance management — current development
+
+- **Changed:** The admin experience is organized around a school model, with student attendance metrics and attendance summaries by class.
+- **Added:** Dedicated directories for students (`/students`), teachers (`/teachers`), staff (`/staffs`), and employees (`/employees`), with role-specific enrollment pages.
+- **Added:** Grade classes from 1st Grade through 12th Grade, student multi-class assignment, and class sponsorship assignments for teachers, staff, and employees.
+- **Added:** Role-aware student, teacher, staff, and employee profile pages for viewing and editing details, status, consent, class memberships/sponsorships, and recent attendance.
+- **Changed:** Enrollment supports Student, Teacher, Staff, and Employee roles; successful enrollment returns to the directory for the selected role.
+- **Documented behavior:** The application remains local-first. Student records, face images, embeddings, attendance, and backups are stored locally; operators must apply appropriate school privacy and consent requirements.
+
 ## Desktop data persistence — current development
 
 - **Changed:** Desktop mode stores the database, face images, embeddings, session secret, and default backups in a stable per-user application-data directory. Browser/LAN mode continues to use project-local `data/`.
@@ -93,6 +102,6 @@ These items describe the project foundation and current architecture; their orig
 
 ## Current state
 
-The current project is a local FastAPI/Jinja2 face-attendance application with Windows and Unix-like setup/launch scripts, a kiosk, password-protected admin pages, five-pose enrollment, SQLite attendance and correction auditing, CSV/Excel exports, local scheduled/manual backups, and admin backup restore.
+The current project is a local FastAPI/Jinja2 school attendance application with Windows and Unix-like setup/launch scripts, a kiosk, password-protected admin pages, student/teacher/staff/employee management, class and sponsor assignments, five-pose enrollment, SQLite attendance and correction auditing, CSV/Excel exports, local scheduled/manual backups, and admin backup restore.
 
 No release version or release date is assigned here. The project currently has no configured automated test suite documented in the README. Validation of individual changes has been performed during development, but that is not equivalent to a continuously maintained test suite.

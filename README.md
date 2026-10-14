@@ -1,6 +1,6 @@
-# Face Attendance Kiosk
+# School Attendance System
 
-A local-first face-recognition attendance system with a live kiosk and a password-protected administration panel. It uses FastAPI, SQLite, OpenCV, InsightFace, and server-rendered HTML/JavaScript.
+A local-first school attendance system with a live face-recognition kiosk and a password-protected administration panel. It uses FastAPI, SQLite, OpenCV, InsightFace, and server-rendered HTML/JavaScript. The admin app manages students, teachers, staff, employees, classes, and attendance.
 
 The application processes camera frames and stores attendance and enrollment data on the machine running the server. It does not require a cloud service for normal operation. Initial setup does need internet access to install Python packages and obtain the face-recognition model.
 
@@ -10,8 +10,12 @@ The application processes camera frames and stores attendance and enrollment dat
 
 - Public home, About, Privacy, Terms, and desktop-app information pages.
 - Live kiosk with camera and attendance-service status, recognition feedback, and check-in/check-out handling.
-- Admin setup and password-protected dashboard with live activity, daily attendance metrics, and department summaries.
-- Five-pose enrollment workflow with frame quality checks and duplicate-face detection.
+- Admin setup and password-protected dashboard with live activity, student attendance metrics, and class summaries.
+- Dedicated role directories at `/students`, `/teachers`, `/staffs`, and `/employees`, with role-specific enrollment links at `/students/add`, `/teachers/add`, `/staffs/add`, and `/employees/add`.
+- Guided enrollment for students, teachers, staff, and employees, with five-pose capture, image-quality checks, and duplicate-face detection.
+- Student grade/class membership, with standard 1st Grade through 12th Grade classes, plus class sponsorship by teachers, staff, or employees.
+- Class-level CSV import for adding student records to a class or assigning existing records to it; imports do not include face images.
+- Viewable and editable individual profiles, attendance history, active status, and face-data consent.
 - Attendance log filtering and CSV/Excel export.
 - Manual attendance corrections with required reasons and a correction audit history.
 - Matching threshold calibration with a live preview.
@@ -95,14 +99,17 @@ To stop the server, press `Ctrl+C` in the terminal where it is running.
 
 ## Using the system
 
-Open `/` for the public home page. It links to the admin dashboard, kiosk, and the About, Privacy, Terms, and desktop-app information pages.
+Open `/` for the public home page. It links to the admin dashboard, kiosk, and the About, Privacy, Terms, and desktop-app information pages. After signing in at `/admin`, the sidebar provides access to each role directory, classes, attendance logs, and settings.
 
 1. **Prepare the kiosk:** Open `/kiosk` in a browser and allow camera access. Keep the server process running.
 2. **Set up administration:** Open `/admin`, create the initial administrator password, and sign in.
-3. **Enroll people:** Choose **People → Add person**, enter the employee information, and follow the guided five-pose camera capture.
-4. **Record attendance:** Keep the kiosk open for people to check in/out. Configure office start time, late margin, cooldown, checkout gap, and recognition threshold in **Settings**.
-5. **Review records:** Use **Logs** to filter attendance, export CSV/XLSX, make justified manual corrections, and review/export the correction history.
-6. **Protect local data:** Download a backup or configure automatic backup interval, retention, and directory in **Settings**. In the desktop app, the download button opens a Save As dialog for the backup ZIP. To restore, select a backup ZIP there and confirm. Restore replaces the current records and face assets; the application creates a safety backup first.
+3. **Add classes and sponsors:** Open **Classes** to review the seeded 1st–12th Grade classes, create other classes if needed, and assign teachers, staff, or employees as class sponsors.
+4. **Enroll students:** Open `/students/add`, enter the student details, select one or more classes, and follow the guided five-pose camera capture. Student records appear in `/students`.
+5. **Enroll teachers and staff:** Use `/teachers/add` or `/staffs/add`. Their directories are available at `/teachers` and `/staffs`; employees can be managed at `/employees`. Teachers and staff can be assigned as sponsors from the class management pages.
+6. **Import a class roster (optional):** Open a class, use **Bulk import students (CSV)**, and upload a UTF-8 CSV with `name` and optional `department`, `employee_id`, `role`, and `consent_given` columns. This imports student records into that class or assigns matching existing IDs; it does not enroll face images.
+7. **Record attendance:** Keep the kiosk open for enrolled users to check in/out. Configure attendance timing, cooldown, checkout gap, and recognition threshold in **Settings**.
+8. **Review records:** Use **Logs** to filter attendance, export CSV/XLSX, make justified manual corrections, and review/export the correction history. Open a person’s profile from their role directory to review recent attendance and edit their details.
+9. **Protect local data:** Download a backup or configure automatic backup interval, retention, and directory in **Settings**. In the desktop app, the download button opens a Save As dialog for the backup ZIP. To restore, select a backup ZIP there and confirm. Restore replaces the current records and face assets; the application creates a safety backup first.
 
 ## Data and privacy
 
@@ -110,7 +117,7 @@ In browser/LAN mode, the application's local data is stored under the project `d
 
 | Path relative to the data directory | Contents |
 | --- | --- |
-| `attendance.db` | Employees, attendance logs, audit history, and settings (SQLite) |
+| `attendance.db` | Enrolled students, teachers, staff, employees, classes, attendance logs, audit history, and settings (SQLite) |
 | `faces/` | Enrolled face images |
 | `embeddings.npy`, `embedding_ids.json` | Cached face-match vectors and their employee IDs |
 | `session_secret.txt` | Local session-signing secret |
@@ -118,7 +125,7 @@ In browser/LAN mode, the application's local data is stored under the project `d
 
 When desktop mode starts and a legacy project database exists but the per-user database does not, it copies missing legacy files into the per-user directory and copies the database last using SQLite's online backup API. Existing per-user databases are left untouched and are not mixed with project-local face files. The source project data is left in place. If both browser/LAN mode and desktop mode are used, they use separate data directories after desktop migration; do not expect changes made in one mode to appear in the other. Close the browser/LAN server before using desktop mode during migration.
 
-In browser/LAN mode, project data files are excluded from version control by `.gitignore`. Desktop-mode data is stored outside the repository. Do not add real employee data, face images, embeddings, database files, session secrets, or backup archives to commits or public issue reports.
+In browser/LAN mode, project data files are excluded from version control by `.gitignore`. Desktop-mode data is stored outside the repository. Do not add real student or employee data, face images, embeddings, database files, session secrets, or backup archives to commits or public issue reports.
 
 Backups contain the attendance database and biometric face assets. Store copies securely, limit access, and periodically verify that backups can be restored. Restore accepts ZIP archives produced for this application and validates their contents before replacement.
 
@@ -129,6 +136,7 @@ Backups contain the attendance database and biometric face assets. Store copies 
 - Protect the host account, administrator password, database, enrollment images, embeddings, exports, and backups.
 - Anyone with physical access to the kiosk browser may be able to interact with its camera. Configure the kiosk device and browser accordingly.
 - Follow applicable privacy, biometric-data, employment, and record-retention requirements before deploying.
+- For school deployments, follow applicable student-privacy and guardian-consent requirements in addition to biometric-data and record-retention rules.
 
 ## Project layout
 

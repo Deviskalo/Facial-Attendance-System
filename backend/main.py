@@ -348,16 +348,14 @@ async def admin_people(request: Request, role: Optional[str] = None):
         return redirect
     role_filter = (role or "").strip().upper()
     role_paths = {
-        "STUDENT": "Students",
-        "TEACHER": "Teachers",
-        "STAFF": "Staff",
-        "EMPLOYEE": "Employees",
+        "STUDENT": "/students",
+        "TEACHER": "/teachers",
+        "STAFF": "/staffs",
+        "EMPLOYEE": "/employees",
     }
-    if role_filter not in role_paths:
-        if role_filter:
-            raise HTTPException(404, "Role directory not found.")
-        return RedirectResponse("/students", status_code=307)
-    return await role_directory(request, role_filter)
+    if role_filter and role_filter not in role_paths:
+        raise HTTPException(404, "Role directory not found.")
+    return RedirectResponse(role_paths.get(role_filter, "/students"), status_code=307)
 
 
 async def role_directory(request: Request, role_filter: str):
@@ -392,7 +390,7 @@ async def role_directory(request: Request, role_filter: str):
             "role_filter": role_filter,
             "page_title": role_titles[role_filter],
             "nav_active": role_filter.lower(),
-            "directory_path": f"/{role_filter.lower() + 's' if role_filter != 'STAFF' else 'staff'}",
+            "directory_path": f"/{role_filter.lower()}s",
         },
     )
 
@@ -407,7 +405,8 @@ async def teacher_directory(request: Request):
     return await role_directory(request, "TEACHER")
 
 
-@app.get("/staff", response_class=HTMLResponse)
+@app.get("/staff", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/staffs", response_class=HTMLResponse)
 async def staff_directory(request: Request):
     return await role_directory(request, "STAFF")
 
@@ -427,7 +426,8 @@ async def add_teacher(request: Request):
     return await admin_people_add(request, "TEACHER")
 
 
-@app.get("/staff/add", response_class=HTMLResponse)
+@app.get("/staff/add", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/staffs/add", response_class=HTMLResponse)
 async def add_staff(request: Request):
     return await admin_people_add(request, "STAFF")
 
@@ -467,7 +467,7 @@ async def admin_people_edit(request: Request, emp_id: str):
             'roles': ["STUDENT", "TEACHER", "STAFF", "EMPLOYEE"],
             'active': 'people',
             'nav_active': role.lower(),
-            'directory_path': f"/{role.lower() + 's' if role != 'STAFF' else 'staff'}",
+            'directory_path': f"/{role.lower()}s",
         },
     )
 
@@ -532,6 +532,7 @@ async def admin_people_add(request: Request, role: str = "STUDENT"):
         "admin/people_add.html",
         {
             "active": "people",
+            "nav_active": role.lower(),
             "poses": [
                 {"id": pose, "label": pose.title(), "hint": POSE_INSTRUCTIONS[pose]}
                 for pose in POSE_LABELS
@@ -568,7 +569,7 @@ async def admin_person_detail(request: Request, emp_id: str):
             "attendance": db.get_employee_attendance(emp_id),
             "active": "people",
             "nav_active": role.lower(),
-            "directory_path": f"/{role.lower() + 's' if role != 'STAFF' else 'staff'}",
+            "directory_path": f"/{role.lower()}s",
         },
     )
 

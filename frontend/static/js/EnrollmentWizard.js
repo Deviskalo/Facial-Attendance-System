@@ -207,7 +207,13 @@
       scheduleAnalyze(0);
     } else if (data.type === "finalize") {
       if (data.ok) {
-        window.location.href = "/admin/people";
+        const directoryByRole = {
+          STUDENT: "/students",
+          TEACHER: "/teachers",
+          STAFF: "/staff",
+          EMPLOYEE: "/employees",
+        };
+        window.location.href = directoryByRole[roleEl.value] || "/students";
       } else {
         statusEl.textContent = data.error || "Could not save this person.";
       }

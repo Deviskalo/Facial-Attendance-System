@@ -1,17 +1,28 @@
 # Context & Objective
-Build a complete, 100% offline, local-first Face Recognition Attendance System with dual interfaces:
+This document began as an implementation plan for a local-first face-recognition attendance system. The project has since grown into a school attendance system with dual interfaces:
 1. **Kiosk Mode**: Interactive display for live facial recognition check-ins/check-outs with instant visual feedback.
-2. **Admin Panel**: Password-protected dashboard for employee enrollment, real-time activity tracking, attendance logs, threshold calibration, and database backups.
+2. **Admin Panel**: Password-protected school dashboard for student, teacher, staff, and employee management, class assignments and sponsorship, attendance logs, threshold calibration, and database backups.
 
-The entire system must run on a local network (LAN/Wi-Fi) without relying on any cloud services or third-party APIs. It must include auto-installer scripts for one-click setup (`setup.bat`/`setup.sh`) and execution (`run.bat`/`run.sh`).
+Normal operation is local-first and does not rely on cloud services. First-time setup requires internet access to install dependencies and download the face-recognition model. The system includes setup (`setup.bat`/`setup.sh`) and launch (`run.bat`/`run.sh`) scripts.
+
+### Current school-management routes
+
+- Student directory and enrollment: `/students` and `/students/add`.
+- Teacher directory and enrollment: `/teachers` and `/teachers/add`.
+- Staff directory and enrollment: `/staffs` and `/staffs/add`.
+- Employee directory and enrollment: `/employees` and `/employees/add`.
+- Class management: `/admin/classes`; standard seeded classes cover 1st Grade through 12th Grade.
+- Students can be assigned to multiple classes. Teachers, staff, and employees can be assigned as class sponsors.
+- Person profiles are available from each directory and support viewing and editing profile details and recent attendance.
+- The SQLite `employees` table stores all four person types; the `role` field distinguishes student, teacher, staff, and employee records.
 
 ---
 
 ## Tech Stack & Architecture
 - **Backend Framework**: Python (FastAPI with Uvicorn, WebSockets, and Pydantic)
 - **Computer Vision & AI Engine**: OpenCV, NumPy, and `insightface` or `face_recognition` (dlib) for 128D/512D face embeddings.
-- **Frontend Framework**: Next.js (React + Tailwind CSS + Lucide Icons) OR FastAPI Jinja2 + HTML5 WebSockets + Tailwind CSS.
-- **Database**: SQLite (Local file-based storage for logs, settings, and user metadata) + NumPy binary (`.npy`) or SQLite BLOB for vector embeddings.
+- **Frontend Framework**: FastAPI Jinja2 templates, HTML, CSS, and browser JavaScript with WebSockets.
+- **Database**: SQLite for person records, class relationships, attendance logs, and settings; local face embeddings and image assets support recognition.
 - **Network Scope**: Bound to `0.0.0.0:8000` so any device on the local Wi-Fi/LAN can access the Kiosk or Admin UI.
 
 ---
@@ -35,7 +46,7 @@ Provide setup and launcher scripts that handle environment configuration automat
 ---
 
 ### 2. Smart Face Enrollment Wizard (5-Angle Capture)
-Inside the Admin Panel (`/admin/people/add`), build a guided 5-shot photo capture system:
+Inside the Admin Panel, use the role-specific enrollment pages (for example, `/students/add` and `/teachers/add`) for the guided 5-shot photo capture system:
 1. **Guided Angles**:
    - Step 1: Frontal view
    - Step 2: Turn head slightly left

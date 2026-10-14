@@ -5,8 +5,10 @@ This document is a proposed direction for the project, not a release schedule or
 ## Current capabilities
 
 - Local FastAPI/Jinja2 application with kiosk and admin interfaces.
-- Guided five-pose employee enrollment with image-quality checks and duplicate detection.
-- SQLite attendance storage, daily dashboard, department summary, filtering, and CSV/Excel exports.
+- Guided five-pose enrollment for students, teachers, staff, and employees, with image-quality checks and duplicate detection.
+- Dedicated student, teacher, staff, and employee directories; role-aware editable profiles and recent attendance.
+- Class management with standard 1st–12th Grade classes, student multi-class enrollment, and teacher/staff/employee class sponsorship.
+- SQLite attendance storage, student-focused daily dashboard, class summaries, filtering, and CSV/Excel exports.
 - Manual attendance correction with required reason and correction-history audit.
 - Matching calibration preview and kiosk service/camera status.
 - Downloadable and scheduled local backups, retention, and validated restore with a pre-restore safety archive.
@@ -22,9 +24,9 @@ This document is a proposed direction for the project, not a release schedule or
 
 ## Medium term: administration and data lifecycle
 
+- Define school-calendar-aware attendance workflows, such as term dates, holidays, and per-class attendance reporting, before implementing them.
 - Add configurable retention and safe archival/deletion workflows for attendance records and biometric enrollment data.
-- Improve employee lifecycle management, including edit/deactivate flows and clearer handling of associated images and embeddings.
-- Add import tools for employee rosters with preview, validation, and duplicate detection before writing changes.
+- Extend the existing class-level student CSV import with a preview and stronger roster validation before adding or assigning records.
 - Expand audit coverage for sensitive administrative actions while keeping audit records useful and privacy-conscious.
 - Provide a documented, least-privilege deployment approach for serving the app over HTTPS on a managed local network.
 
