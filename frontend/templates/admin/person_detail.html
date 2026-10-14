@@ -1,0 +1,114 @@
+{% extends "admin/base.html" %} {% block title %}{{ person.name }} · {{
+person.role | title }}{% endblock %} {% block content %}
+<nav aria-label="Breadcrumb" class="muted">
+  <a href="{{ directory_path }}"
+    >{{ person.role | title }}</a
+  >
+  / {{ person.name }}
+</nav>
+<div class="topbar">
+  <h1>{{ person.name }}</h1>
+  <div class="row">
+    <a class="btn" href="/admin/people/{{ person.id }}/edit">Edit profile</a>
+    <a class="btn secondary" href="{{ directory_path }}"
+      >Back to {{ person.role | title }} list</a
+    >
+  </div>
+</div>
+<div class="grid-2">
+  <section class="panel" aria-labelledby="profile-heading">
+    <h2 id="profile-heading">Profile details</h2>
+    <dl>
+      <dt>ID</dt>
+      <dd>{{ person.id }}</dd>
+      <dt>Role</dt>
+      <dd>{{ person.role | title }}</dd>
+      <dt>Name</dt>
+      <dd>{{ person.name }}</dd>
+      <dt>
+        {% if person.role | upper == 'STUDENT' %}Homeroom{% else %}Department{%
+        endif %}
+      </dt>
+      <dd>{{ person.department or "Not provided" }}</dd>
+      <dt>Status</dt>
+      <dd>{{ "Active" if person.is_active else "Inactive" }}</dd>
+      <dt>Face-data consent</dt>
+      <dd>{{ "Recorded" if person.consent_given else "Not recorded" }}</dd>
+      <dt>Enrolled</dt>
+      <dd>{{ person.created_at }}</dd>
+    </dl>
+    {% if classes %}
+    <h3>
+      {% if person.role | upper == 'STUDENT' %}Classes{% else %}Sponsored
+      classes{% endif %}
+    </h3>
+    <ul>
+      {% for cls in classes %}
+      <li><a href="/admin/classes/{{ cls.id }}">{{ cls.name }}</a></li>
+      {% endfor %}
+    </ul>
+    {% elif person.role | upper == 'STUDENT' %}
+    <p class="muted">No class memberships assigned.</p>
+    {% elif person.role | upper in ['TEACHER', 'STAFF', 'EMPLOYEE'] %}
+    <p class="muted">No classes sponsored.</p>
+    {% endif %}
+  </section>
+  <section class="panel" aria-labelledby="photo-heading">
+    <h2 id="photo-heading">Enrollment photo</h2>
+    <img
+      src="/media/faces/{{ person.id }}/center"
+      alt="Enrollment photo of {{ person.name }}"
+      width="240"
+      height="240"
+      style="
+        max-width: 100%;
+        height: auto;
+        object-fit: cover;
+        border-radius: 12px;
+      "
+      onerror="
+        this.hidden = true;
+        document.getElementById('photo-unavailable').hidden = false;
+      "
+    />
+    <p id="photo-unavailable" class="muted" hidden>
+      No enrollment photo available.
+    </p>
+  </section>
+</div>
+<section
+  class="panel"
+  style="margin-top: 16px"
+  aria-labelledby="attendance-heading"
+>
+  <h2 id="attendance-heading">Recent attendance</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Date and time</th>
+        <th scope="col">Event</th>
+        <th scope="col">Status</th>
+        <th scope="col">Match confidence</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in attendance %}
+      <tr>
+        <td>{{ record.timestamp }}</td>
+        <td>{{ record.event_type | replace('_', ' ') | title }}</td>
+        <td>{{ record.status | title }}</td>
+        <td>
+          {% if record.confidence_score is not none %}{{
+          (record.confidence_score * 100) | round(1) }}%{% else %}Manual{% endif
+          %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" class="muted">No attendance records yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

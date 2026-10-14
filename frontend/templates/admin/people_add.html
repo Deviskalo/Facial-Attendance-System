@@ -2,7 +2,7 @@
 {% block title %}Enroll{% endblock %}
 {% block content %}
 <div class="topbar">
-  <h1>Enrollment wizard</h1>
+  <h1 id="enrollment-title">Enroll a student</h1>
 </div>
 <div class="wizard">
   <div>
@@ -17,7 +17,7 @@
     </div>
     <div class="row">
       <button id="capture-btn" class="btn" type="button" disabled>Capture</button>
-      <button id="finish-btn" class="btn secondary" type="button" disabled>Save person</button>
+      <button id="finish-btn" class="btn secondary" type="button" disabled>Save student</button>
     </div>
     <p id="enroll-status"></p>
     <p id="quality-guidance" class="quality-guidance" aria-live="polite">Waiting for camera analysis...</p>
@@ -25,12 +25,29 @@
   </div>
   <div>
     <div class="panel">
-      <label for="employee_id">Employee ID</label>
-      <input id="employee_id" value="{{ next_id }}">
+      <label id="id-label" for="employee_id">Student ID</label>
+      <input id="employee_id" value="" placeholder="Leave blank to generate an ID">
       <label for="name">Full name</label>
       <input id="name" required>
-      <label for="department">Department</label>
-      <input id="department" required>
+      <label id="department-label" for="department">Homeroom (optional)</label>
+      <input id="department" placeholder="e.g. Room 12">
+      <label for="role">Enroll as</label>
+      <select id="role" aria-label="Choose whether to enroll a student or employee">
+        <option value="STUDENT">Student</option>
+        <option value="TEACHER">Teacher</option>
+        <option value="EMPLOYEE">Employee</option>
+        <option value="STAFF">Staff</option>
+      </select>
+      <div id="classes-field">
+        <label for="class_ids">Grade(s) / Class(es) (optional)</label>
+        <select id="class_ids" multiple size="4">
+          {% for cls in classes %}
+          <option value="{{ cls.id }}">{{ cls.name }}</option>
+          {% endfor %}
+        </select>
+        <div class="muted">Select one or more grades or classes. Use Ctrl-click to select several.</div>
+      </div>
+      <label for="consent_given" style="margin-top:8px"><input id="consent_given" type="checkbox"> Consent to store face data</label>
     </div>
     <div class="steps" style="margin-top:12px">
       {% for pose in poses %}

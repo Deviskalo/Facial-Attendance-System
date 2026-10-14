@@ -1,0 +1,91 @@
+{% extends "admin/base.html" %}
+{% block title %}Classes{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>Classes</h1>
+</div>
+<div class="panel">
+  <div style="display:flex;gap:12px;align-items:center">
+    <input id="class-name" placeholder="New class name" style="flex:1">
+    <button class="btn" id="create-class">Create</button>
+  </div>
+</div>
+<div class="panel" style="margin-top:12px">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for cls in classes %}
+      <tr>
+        <td>{{ cls.id }}</td>
+        <td id="cls-name-{{ cls.id }}">{{ cls.name }}</td>
+        <td>
+          <button class="btn" onclick="location.href='/admin/classes/{{ cls.id }}'">View</button>
+          <button class="btn" onclick="editClass({{ cls.id }}, '{{ cls.name | escape }}')">Edit</button>
+          <button class="btn danger" onclick="deleteClass({{ cls.id }})">Delete</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="muted">No classes defined yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById('create-class').addEventListener('click', async () => {
+    const name = document.getElementById('class-name').value.trim();
+    if (!name) return alert('Enter a class name');
+    try {
+      const res = await fetch('/api/classes', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name})});
+      if (!res.ok) throw new Error(await res.text());
+      location.reload();
+    } catch (err) {
+      alert('Could not create class: ' + err);
+    }
+  });
+  async function deleteClass(id) {
+    if (!confirm('Delete this class? Students will be unassigned.')) return;
+    try {
+      const res = await fetch('/api/classes/' + id, {method: 'DELETE'});
+      if (!res.ok) throw new Error(await res.text());
+      location.reload();
+    } catch (err) {
+      alert('Could not delete class: ' + err);
+    }
+  }
+  function editClass(id, currentName) {
+    const cell = document.getElementById('cls-name-' + id);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.style.width = '100%';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.className = 'btn';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn secondary';
+    cell.innerHTML = '';
+    cell.appendChild(input);
+    cell.appendChild(saveBtn);
+    cell.appendChild(cancelBtn);
+    saveBtn.addEventListener('click', async () => {
+      const name = input.value.trim();
+      if (!name) return alert('Enter a class name');
+      try {
+        const res = await fetch('/api/classes/' + id, {method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name})});
+        if (!res.ok) throw new Error(await res.text());
+        location.reload();
+      } catch (err) {
+        alert('Could not update class: ' + err);
+      }
+    });
+    cancelBtn.addEventListener('click', () => {
+      cell.innerText = currentName;
+    });
+  }
+</script>
+{% endblock %}

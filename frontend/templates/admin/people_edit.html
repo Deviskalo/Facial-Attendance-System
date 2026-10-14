@@ -1,0 +1,80 @@
+{% extends "admin/base.html" %}
+{% block title %}Edit {{ person.name }}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="muted">
+  <a href="{{ directory_path }}">{{ person.role | title }}</a> / <a href="/admin/people/{{ person.id }}">{{ person.name }}</a> / Edit
+</nav>
+<div class="topbar">
+  <h1>Edit {{ person.role | title }} profile</h1>
+  <a class="btn secondary" href="/admin/people/{{ person.id }}">Cancel</a>
+</div>
+<form method="post" action="/admin/people/{{ person.id }}/edit" class="panel">
+  <fieldset>
+    <legend>Profile information</legend>
+    <label for="person-id">ID</label>
+    <input id="person-id" value="{{ person.id }}" readonly>
+
+    <label for="name">Full name</label>
+    <input id="name" name="name" value="{{ person.name }}" autocomplete="name" required>
+
+    <label for="role">Role</label>
+    <select id="role" name="role" required>
+      {% for role in roles %}
+      <option value="{{ role }}" {% if person.role | upper == role %}selected{% endif %}>{{ role | title }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="department" id="department-label">Department / Homeroom</label>
+    <input id="department" name="department" value="{{ person.department }}" autocomplete="organization">
+  </fieldset>
+
+  <fieldset id="classes-fieldset">
+    <legend id="classes-legend">Class memberships</legend>
+    <label for="class_ids" id="classes-label">Select classes</label>
+    <select id="class_ids" name="class_ids" multiple size="8" aria-describedby="classes-help">
+      {% for cls in classes %}
+      <option value="{{ cls.id }}" {% if cls.id in assigned_ids %}selected{% endif %}>{{ cls.name }}</option>
+      {% endfor %}
+    </select>
+    <p id="classes-help" class="muted">Use Ctrl (Windows/Linux) or Command (Mac) while selecting to choose multiple classes.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Attendance and consent</legend>
+    <label for="is_active">Record status</label>
+    <select id="is_active" name="is_active">
+      <option value="1" {% if person.is_active %}selected{% endif %}>Active</option>
+      <option value="0" {% if not person.is_active %}selected{% endif %}>Inactive</option>
+    </select>
+    <label>
+      <input type="checkbox" name="consent_given" value="1" {% if person.consent_given %}checked{% endif %}>
+      Consent to store face data
+    </label>
+  </fieldset>
+
+  <div class="row" style="margin-top:16px">
+    <button class="btn" type="submit">Save changes</button>
+    <a class="btn secondary" href="/admin/people/{{ person.id }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  const roleSelect = document.getElementById("role");
+  const departmentLabel = document.getElementById("department-label");
+  const departmentInput = document.getElementById("department");
+  const classesLegend = document.getElementById("classes-legend");
+  const classesLabel = document.getElementById("classes-label");
+
+  function updateRoleFields() {
+    const isStudent = roleSelect.value === "STUDENT";
+    departmentLabel.textContent = isStudent ? "Homeroom (optional)" : "Department";
+    departmentInput.required = !isStudent;
+    classesLegend.textContent = isStudent ? "Class memberships" : "Sponsored classes";
+    classesLabel.textContent = isStudent ? "Select the student's classes" : "Select classes this person sponsors";
+  }
+
+  roleSelect.addEventListener("change", updateRoleFields);
+  updateRoleFields();
+</script>
+{% endblock %}

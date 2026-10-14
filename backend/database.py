@@ -15,6 +15,14 @@ def _now() -> str:
     return datetime.now().isoformat(sep=" ", timespec="seconds")
 
 
+DEFAULT_CLASS_NAMES = [
+    "1st Grade",
+    "2nd Grade",
+    "3rd Grade",
+    *[f"{grade}th Grade" for grade in range(4, 13)],
+]
+
+
 def connect() -> sqlite3.Connection:
     ensure_directories()
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -78,6 +86,27 @@ def init_db() -> None:
                 reason TEXT NOT NULL DEFAULT ''
             );
 
+            CREATE TABLE IF NOT EXISTS classes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+
+            CREATE TABLE IF NOT EXISTS student_classes (
+                student_id TEXT NOT NULL,
+                class_id INTEGER NOT NULL,
+                PRIMARY KEY(student_id, class_id),
+                FOREIGN KEY(student_id) REFERENCES employees(id) ON DELETE CASCADE,
+                FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS class_teachers (
+                teacher_id TEXT NOT NULL,
+                class_id INTEGER NOT NULL,
+                PRIMARY KEY(teacher_id, class_id),
+                FOREIGN KEY(teacher_id) REFERENCES employees(id) ON DELETE CASCADE,
+                FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS system_settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -93,6 +122,18 @@ def init_db() -> None:
                 "ALTER TABLE attendance_log_audit "
                 "ADD COLUMN reason TEXT NOT NULL DEFAULT ''"
             )
+
+        # Ensure employees table has role and consent columns for student use
+        emp_columns = {row["name"] for row in conn.execute("PRAGMA table_info(employees)").fetchall()}
+        if "role" not in emp_columns:
+            conn.execute("ALTER TABLE employees ADD COLUMN role TEXT NOT NULL DEFAULT 'STAFF'")
+        if "consent_given" not in emp_columns:
+            conn.execute("ALTER TABLE employees ADD COLUMN consent_given INTEGER NOT NULL DEFAULT 0")
+
+        conn.executemany(
+            "INSERT OR IGNORE INTO classes (name) VALUES (?)",
+            [(name,) for name in DEFAULT_CLASS_NAMES],
+        )
         for key, value in DEFAULT_SETTINGS.items():
             conn.execute(
                 "INSERT OR IGNORE INTO system_settings (key, value) VALUES (?, ?)",
@@ -139,26 +180,30 @@ def set_settings(updates: dict[str, str]) -> None:
 
 
 def next_employee_id() -> str:
+    return next_person_id("EMP")
+
+
+def next_person_id(prefix: str) -> str:
     with get_db() as conn:
         rows = conn.execute("SELECT id FROM employees").fetchall()
     numbers = []
     for row in rows:
         emp_id = row["id"]
-        if emp_id.startswith("EMP-"):
+        if emp_id.startswith(f"{prefix}-"):
             suffix = emp_id.split("-", 1)[-1]
             if suffix.isdigit():
                 numbers.append(int(suffix))
     nxt = max(numbers, default=100) + 1
-    return f"EMP-{nxt}"
+    return f"{prefix}-{nxt}"
 
 
-def create_employee(emp_id: str, name: str, department: str) -> dict[str, Any]:
+def create_employee(emp_id: str, name: str, department: str, role: str = "STAFF", consent_given: int = 0) -> dict[str, Any]:
     created = _now()
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO employees (id, name, department, is_active, created_at) "
-            "VALUES (?, ?, ?, 1, ?)",
-            (emp_id, name, department, created),
+            "INSERT INTO employees (id, name, department, is_active, created_at, role, consent_given) "
+            "VALUES (?, ?, ?, 1, ?, ?, ?)",
+            (emp_id, name, department, created, role, int(consent_given)),
         )
     return {
         "id": emp_id,
@@ -166,6 +211,8 @@ def create_employee(emp_id: str, name: str, department: str) -> dict[str, Any]:
         "department": department,
         "is_active": 1,
         "created_at": created,
+        "role": role,
+        "consent_given": int(consent_given),
     }
 
 
@@ -176,6 +223,15 @@ def list_employees(active_only: bool = False) -> list[dict[str, Any]]:
     sql += " ORDER BY created_at DESC"
     with get_db() as conn:
         return [dict(row) for row in conn.execute(sql).fetchall()]
+
+
+def list_people_by_role(role: str) -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM employees WHERE UPPER(role) = ? ORDER BY name, id",
+            (role.upper(),),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def get_employee(emp_id: str) -> Optional[dict[str, Any]]:
@@ -189,7 +245,7 @@ def get_employee(emp_id: str) -> Optional[dict[str, Any]]:
 def update_employee(emp_id: str, **fields: Any) -> None:
     if not fields:
         return
-    allowed = {"name", "department", "is_active"}
+    allowed = {"name", "department", "is_active", "role", "consent_given"}
     parts = []
     values: list[Any] = []
     for key, value in fields.items():
@@ -203,6 +259,17 @@ def update_employee(emp_id: str, **fields: Any) -> None:
         conn.execute(
             f"UPDATE employees SET {', '.join(parts)} WHERE id = ?", values
         )
+
+
+def get_employee_attendance(emp_id: str, limit: int = 20) -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, timestamp, event_type, status, confidence_score "
+            "FROM attendance_logs WHERE employee_id = ? "
+            "ORDER BY timestamp DESC, id DESC LIMIT ?",
+            (emp_id, limit),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def delete_employee(emp_id: str) -> None:
@@ -505,16 +572,21 @@ def dashboard_metrics(day: Optional[str] = None) -> dict[str, int]:
     day = day or datetime.now().strftime("%Y-%m-%d")
     with get_db() as conn:
         enrolled = conn.execute(
-            "SELECT COUNT(*) AS n FROM employees WHERE is_active = 1"
+            "SELECT COUNT(*) AS n FROM employees "
+            "WHERE is_active = 1 AND UPPER(role) = 'STUDENT'"
         ).fetchone()["n"]
         present_rows = conn.execute(
-            "SELECT DISTINCT employee_id FROM attendance_logs "
-            "WHERE timestamp LIKE ? AND event_type = 'CHECK_IN'",
+            "SELECT DISTINCT l.employee_id FROM attendance_logs l "
+            "JOIN employees e ON e.id = l.employee_id "
+            "WHERE l.timestamp LIKE ? AND l.event_type = 'CHECK_IN' "
+            "AND e.is_active = 1 AND UPPER(e.role) = 'STUDENT'",
             (f"{day}%",),
         ).fetchall()
         late_rows = conn.execute(
-            "SELECT DISTINCT employee_id FROM attendance_logs "
-            "WHERE timestamp LIKE ? AND status = 'LATE'",
+            "SELECT DISTINCT l.employee_id FROM attendance_logs l "
+            "JOIN employees e ON e.id = l.employee_id "
+            "WHERE l.timestamp LIKE ? AND l.status = 'LATE' "
+            "AND e.is_active = 1 AND UPPER(e.role) = 'STUDENT'",
             (f"{day}%",),
         ).fetchall()
     present = len(present_rows)
@@ -526,6 +598,32 @@ def dashboard_metrics(day: Optional[str] = None) -> dict[str, int]:
         "late": late,
         "absent": absent,
     }
+
+
+def query_daily_class_summary(day: Optional[str] = None) -> list[dict[str, Any]]:
+    selected_day = day or datetime.now().strftime("%Y-%m-%d")
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT COALESCE(c.name, 'Unassigned') AS class_name, "
+            "COUNT(DISTINCT e.id) AS enrolled, "
+            "COUNT(DISTINCT CASE WHEN l.event_type = 'CHECK_IN' THEN e.id END) AS present, "
+            "COUNT(DISTINCT CASE WHEN l.event_type = 'CHECK_IN' AND l.status = 'LATE' "
+            "THEN e.id END) AS late "
+            "FROM employees e "
+            "LEFT JOIN student_classes sc ON sc.student_id = e.id "
+            "LEFT JOIN classes c ON c.id = sc.class_id "
+            "LEFT JOIN attendance_logs l ON l.employee_id = e.id "
+            "AND l.timestamp >= ? AND l.timestamp < date(?, '+1 day') "
+            "WHERE e.is_active = 1 AND UPPER(e.role) = 'STUDENT' "
+            "GROUP BY c.id, c.name ORDER BY c.name",
+            (selected_day, selected_day),
+        ).fetchall()
+    summary = []
+    for row in rows:
+        class_row = dict(row)
+        class_row["absent"] = class_row["enrolled"] - class_row["present"]
+        summary.append(class_row)
+    return summary
 
 
 def present_employee_ids(day: Optional[str] = None) -> set[str]:
@@ -541,3 +639,150 @@ def present_employee_ids(day: Optional[str] = None) -> set[str]:
 
 def serialize_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
+
+
+# Classes and student-class association helpers
+def create_class(name: str) -> dict[str, Any]:
+    with get_db() as conn:
+        cur = conn.execute("INSERT OR IGNORE INTO classes (name) VALUES (?)", (name,))
+        if cur.lastrowid:
+            class_id = cur.lastrowid
+        else:
+            row = conn.execute("SELECT id FROM classes WHERE name = ?", (name,)).fetchone()
+            class_id = row["id"]
+    return {"id": class_id, "name": name}
+
+
+def list_classes() -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute("SELECT id, name FROM classes ORDER BY name").fetchall()
+    grade_order = {name: index for index, name in enumerate(DEFAULT_CLASS_NAMES)}
+    return sorted(
+        (dict(row) for row in rows),
+        key=lambda cls: (
+            grade_order.get(cls["name"], len(grade_order)),
+            cls["name"].casefold(),
+        ),
+    )
+
+
+def assign_student_to_class(student_id: str, class_id: int) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO student_classes (student_id, class_id) VALUES (?, ?)",
+            (student_id, class_id),
+        )
+
+
+def assign_student_to_classes(student_id: str, class_ids: list[int]) -> None:
+    if not class_ids:
+        return
+    records = [(student_id, int(cid)) for cid in class_ids]
+    with get_db() as conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO student_classes (student_id, class_id) VALUES (?, ?)",
+            records,
+        )
+
+
+def set_student_classes(student_id: str, class_ids: list[int]) -> None:
+    with get_db() as conn:
+        conn.execute("DELETE FROM student_classes WHERE student_id = ?", (student_id,))
+        if class_ids:
+            records = [(student_id, int(cid)) for cid in class_ids]
+            conn.executemany(
+                "INSERT OR IGNORE INTO student_classes (student_id, class_id) VALUES (?, ?)",
+                records,
+            )
+
+
+def remove_student_from_class(student_id: str, class_id: int) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM student_classes WHERE student_id = ? AND class_id = ?",
+            (student_id, class_id),
+        )
+
+
+def get_student_classes(student_id: str) -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT c.id, c.name FROM classes c "
+            "JOIN student_classes sc ON sc.class_id = c.id "
+            "WHERE sc.student_id = ? ORDER BY c.name",
+            (student_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_teacher_classes(teacher_id: str) -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT c.id, c.name FROM classes c "
+            "JOIN class_teachers ct ON ct.class_id = c.id "
+            "WHERE ct.teacher_id = ? ORDER BY c.name",
+            (teacher_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def set_teacher_classes(teacher_id: str, class_ids: list[int]) -> None:
+    with get_db() as conn:
+        conn.execute("DELETE FROM class_teachers WHERE teacher_id = ?", (teacher_id,))
+        conn.executemany(
+            "INSERT INTO class_teachers (teacher_id, class_id) VALUES (?, ?)",
+            [(teacher_id, class_id) for class_id in class_ids],
+        )
+
+
+def get_students_in_class(class_id: int) -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT e.* FROM employees e "
+            "JOIN student_classes sc ON sc.student_id = e.id "
+            "WHERE sc.class_id = ? ORDER BY e.name",
+            (class_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_class_sponsors(class_id: int) -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT e.id, e.name, e.department, e.role FROM employees e "
+            "JOIN class_teachers ct ON ct.teacher_id = e.id "
+            "WHERE ct.class_id = ? ORDER BY e.name",
+            (class_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_class_sponsor_candidates() -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, name, department, role FROM employees "
+            "WHERE is_active = 1 AND UPPER(role) IN ('TEACHER', 'STAFF', 'EMPLOYEE') "
+            "ORDER BY name"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def set_class_sponsors(class_id: int, teacher_ids: list[str]) -> None:
+    with get_db() as conn:
+        conn.execute("DELETE FROM class_teachers WHERE class_id = ?", (class_id,))
+        conn.executemany(
+            "INSERT INTO class_teachers (teacher_id, class_id) VALUES (?, ?)",
+            [(teacher_id, class_id) for teacher_id in teacher_ids],
+        )
+
+
+def delete_class(class_id: int) -> None:
+    with get_db() as conn:
+        # remove associations then the class
+        conn.execute("DELETE FROM student_classes WHERE class_id = ?", (class_id,))
+        conn.execute("DELETE FROM classes WHERE id = ?", (class_id,))
+
+
+def update_class(class_id: int, name: str) -> None:
+    with get_db() as conn:
+        conn.execute("UPDATE classes SET name = ? WHERE id = ?", (name, class_id))

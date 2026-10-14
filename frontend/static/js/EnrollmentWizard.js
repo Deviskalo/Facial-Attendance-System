@@ -9,6 +9,13 @@
   const progressEl = document.getElementById("enroll-progress");
   const progressLabelEl = document.getElementById("enroll-progress-label");
   const statusEl = document.getElementById("enroll-status");
+  const roleEl = document.getElementById("role");
+  const classIdsEl = document.getElementById("class_ids");
+  const classesFieldEl = document.getElementById("classes-field");
+  const idLabelEl = document.getElementById("id-label");
+  const departmentLabelEl = document.getElementById("department-label");
+  const enrollmentTitleEl = document.getElementById("enrollment-title");
+  const departmentEl = document.getElementById("department");
   const poses = JSON.parse(document.getElementById("pose-data").textContent);
   let index = 0;
   const captured = new Set();
@@ -26,6 +33,32 @@
 
   function currentPose() {
     return poses[index];
+  }
+
+  function updateEnrollmentType() {
+    const role = roleEl.value;
+    const isStudent = role === "STUDENT";
+    const personType = isStudent
+      ? "student"
+      : role === "TEACHER"
+        ? "teacher"
+        : role === "EMPLOYEE"
+          ? "employee"
+          : "staff member";
+    enrollmentTitleEl.textContent = `Enroll a ${personType}`;
+    finishBtn.textContent = `Save ${personType}`;
+    idLabelEl.textContent = isStudent
+      ? "Student ID"
+      : `${role === "EMPLOYEE" ? "Employee" : role === "TEACHER" ? "Teacher" : "Staff"} ID`;
+    departmentLabelEl.textContent = isStudent ? "Homeroom (optional)" : "Department";
+    departmentEl.required = !isStudent;
+    departmentEl.placeholder = isStudent ? "e.g. Room 12" : "e.g. Science Department";
+    classesFieldEl.hidden = !isStudent;
+    if (!isStudent) {
+      for (const option of classIdsEl.options) {
+        option.selected = false;
+      }
+    }
   }
 
   function updateControls() {
@@ -219,12 +252,18 @@
       return;
     }
     try {
+      const classIds = roleEl.value === "STUDENT"
+        ? Array.from(classIdsEl.selectedOptions, (option) => option.value)
+        : [];
       socket.send(
         JSON.stringify({
           type: "finalize",
-          name: document.getElementById("name").value,
-          department: document.getElementById("department").value,
+          name: document.getElementById("name").value.trim(),
+          department: departmentEl.value.trim(),
           employee_id: document.getElementById("employee_id").value,
+          role: roleEl.value,
+          class_ids: classIds,
+          consent_given: document.getElementById("consent_given") ? (document.getElementById("consent_given").checked ? 1 : 0) : 0,
         })
       );
     } catch (err) {
@@ -264,5 +303,7 @@
       });
   }
 
+  roleEl.addEventListener("change", updateEnrollmentType);
+  updateEnrollmentType();
   renderSteps();
 })();

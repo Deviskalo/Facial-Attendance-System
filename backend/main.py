@@ -284,7 +284,7 @@ async def admin_home(request: Request):
         "admin/dashboard.html",
         {
             "metrics": metrics,
-            "department_summary": db.query_daily_department_summary(),
+            "class_summary": db.query_daily_class_summary(),
             "backup_status": backups.backup_status(
                 db.get_setting("backup_directory")
             ),
@@ -342,19 +342,191 @@ async def admin_logout(request: Request):
 
 
 @app.get("/admin/people", response_class=HTMLResponse)
-async def admin_people(request: Request):
+async def admin_people(request: Request, role: Optional[str] = None):
     redirect = require_admin_redirect(request)
     if redirect:
         return redirect
-    people = db.list_employees()
-    return _render(request, "admin/people.html", {"people": people, "active": "people"})
+    role_filter = (role or "").strip().upper()
+    role_paths = {
+        "STUDENT": "Students",
+        "TEACHER": "Teachers",
+        "STAFF": "Staff",
+        "EMPLOYEE": "Employees",
+    }
+    if role_filter not in role_paths:
+        if role_filter:
+            raise HTTPException(404, "Role directory not found.")
+        return RedirectResponse("/students", status_code=307)
+    return await role_directory(request, role_filter)
+
+
+async def role_directory(request: Request, role_filter: str):
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    role_titles = {
+        "STUDENT": "Students",
+        "TEACHER": "Teachers",
+        "STAFF": "Staff",
+        "EMPLOYEE": "Employees",
+    }
+    people = db.list_people_by_role(role_filter)
+    enriched = []
+    for p in people:
+        classes = (
+            db.get_student_classes(p["id"])
+            if p["role"].upper() == "STUDENT"
+            else db.get_teacher_classes(p["id"])
+            if p["role"].upper() in {"TEACHER", "STAFF", "EMPLOYEE"}
+            else []
+        )
+        p_copy = dict(p)
+        p_copy["classes"] = ", ".join([c["name"] for c in classes]) if classes else ""
+        enriched.append(p_copy)
+    return _render(
+        request,
+        "admin/people.html",
+        {
+            "people": enriched,
+            "active": "people",
+            "role_filter": role_filter,
+            "page_title": role_titles[role_filter],
+            "nav_active": role_filter.lower(),
+            "directory_path": f"/{role_filter.lower() + 's' if role_filter != 'STAFF' else 'staff'}",
+        },
+    )
+
+
+@app.get("/students", response_class=HTMLResponse)
+async def student_directory(request: Request):
+    return await role_directory(request, "STUDENT")
+
+
+@app.get("/teachers", response_class=HTMLResponse)
+async def teacher_directory(request: Request):
+    return await role_directory(request, "TEACHER")
+
+
+@app.get("/staff", response_class=HTMLResponse)
+async def staff_directory(request: Request):
+    return await role_directory(request, "STAFF")
+
+
+@app.get("/employees", response_class=HTMLResponse)
+async def employee_directory(request: Request):
+    return await role_directory(request, "EMPLOYEE")
+
+
+@app.get("/students/add", response_class=HTMLResponse)
+async def add_student(request: Request):
+    return await admin_people_add(request, "STUDENT")
+
+
+@app.get("/teachers/add", response_class=HTMLResponse)
+async def add_teacher(request: Request):
+    return await admin_people_add(request, "TEACHER")
+
+
+@app.get("/staff/add", response_class=HTMLResponse)
+async def add_staff(request: Request):
+    return await admin_people_add(request, "STAFF")
+
+
+@app.get("/employees/add", response_class=HTMLResponse)
+async def add_employee(request: Request):
+    return await admin_people_add(request, "EMPLOYEE")
+
+
+@app.get('/admin/people/{emp_id}/edit', response_class=HTMLResponse)
+async def admin_people_edit(request: Request, emp_id: str):
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    person = db.get_employee(emp_id)
+    if not person:
+        raise HTTPException(404, 'Person not found.')
+    classes = db.list_classes()
+    role = person["role"].upper()
+    assigned = [
+        cls["id"]
+        for cls in (
+            db.get_student_classes(emp_id)
+            if role == "STUDENT"
+            else db.get_teacher_classes(emp_id)
+            if role in {"TEACHER", "STAFF", "EMPLOYEE"}
+            else []
+        )
+    ]
+    return _render(
+        request,
+        'admin/people_edit.html',
+        {
+            'person': person,
+            'classes': classes,
+            'assigned_ids': assigned,
+            'roles': ["STUDENT", "TEACHER", "STAFF", "EMPLOYEE"],
+            'active': 'people',
+            'nav_active': role.lower(),
+            'directory_path': f"/{role.lower() + 's' if role != 'STAFF' else 'staff'}",
+        },
+    )
+
+
+@app.post("/admin/people/{emp_id}/edit")
+async def admin_people_edit_post(request: Request, emp_id: str):
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    person = db.get_employee(emp_id)
+    if not person:
+        raise HTTPException(404, "Person not found.")
+    form = await request.form()
+    name = str(form.get("name") or "").strip()
+    department = str(form.get("department") or "").strip()
+    role = str(form.get("role") or "").strip().upper()
+    if not name:
+        raise HTTPException(400, "Name is required.")
+    if role not in {"STUDENT", "TEACHER", "STAFF", "EMPLOYEE"}:
+        raise HTTPException(400, "Choose a valid role.")
+    if role != "STUDENT" and not department:
+        raise HTTPException(400, "Department is required for staff and employees.")
+    if role == "STUDENT" and not department:
+        department = "Student"
+    try:
+        class_ids = [int(value) for value in form.getlist("class_ids")]
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid class selection.") from exc
+    available_class_ids = {cls["id"] for cls in db.list_classes()}
+    if len(class_ids) != len(set(class_ids)) or not set(class_ids).issubset(available_class_ids):
+        raise HTTPException(400, "One or more selected classes do not exist.")
+    was_active = bool(person["is_active"])
+    is_active = form.get("is_active") == "1"
+    db.update_employee(
+        emp_id,
+        name=name,
+        department=department,
+        role=role,
+        is_active=int(is_active),
+        consent_given=int(form.get("consent_given") == "1"),
+    )
+    db.set_student_classes(emp_id, class_ids if role == "STUDENT" else [])
+    db.set_teacher_classes(
+        emp_id,
+        class_ids if role in {"TEACHER", "STAFF", "EMPLOYEE"} else [],
+    )
+    if was_active != is_active:
+        rebuild_match_cache()
+    return RedirectResponse(f"/admin/people/{emp_id}", status_code=303)
 
 
 @app.get("/admin/people/add", response_class=HTMLResponse)
-async def admin_people_add(request: Request):
+async def admin_people_add(request: Request, role: str = "STUDENT"):
     redirect = require_admin_redirect(request)
     if redirect:
         return redirect
+    role = role.strip().upper()
+    if role not in {"STUDENT", "TEACHER", "EMPLOYEE", "STAFF"}:
+        role = "STUDENT"
     return _render(
         request,
         "admin/people_add.html",
@@ -365,6 +537,38 @@ async def admin_people_add(request: Request):
                 for pose in POSE_LABELS
             ],
             "next_id": db.next_employee_id(),
+            "classes": db.list_classes(),
+            "initial_role": role,
+        },
+    )
+
+
+@app.get("/admin/people/{emp_id}", response_class=HTMLResponse)
+async def admin_person_detail(request: Request, emp_id: str):
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    person = db.get_employee(emp_id)
+    if not person:
+        raise HTTPException(404, "Person not found.")
+    role = person["role"].upper()
+    classes = (
+        db.get_student_classes(emp_id)
+        if role == "STUDENT"
+        else db.get_teacher_classes(emp_id)
+        if role in {"TEACHER", "STAFF", "EMPLOYEE"}
+        else []
+    )
+    return _render(
+        request,
+        "admin/person_detail.html",
+        {
+            "person": person,
+            "classes": classes,
+            "attendance": db.get_employee_attendance(emp_id),
+            "active": "people",
+            "nav_active": role.lower(),
+            "directory_path": f"/{role.lower() + 's' if role != 'STAFF' else 'staff'}",
         },
     )
 
@@ -388,6 +592,48 @@ async def admin_settings(request: Request):
         return redirect
     settings = _public_settings()
     return _render(request, "admin/settings.html", {"active": "settings", "settings": settings})
+
+
+@app.get("/admin/classes", response_class=HTMLResponse)
+async def admin_classes(request: Request):
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    classes = db.list_classes()
+    return _render(request, "admin/classes.html", {"classes": classes, "active": "classes"})
+
+
+@app.post("/api/classes")
+async def api_create_class(request: Request):
+    if denied := _deny_api(request):
+        return denied
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "Class name is required.")
+    cls = db.create_class(name)
+    return cls
+
+
+@app.patch("/api/classes/{class_id}")
+async def api_update_class(request: Request, class_id: int):
+    if denied := _deny_api(request):
+        return denied
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "Class name is required.")
+    db.update_class(class_id, name)
+    return {"ok": True}
+
+
+@app.delete("/api/classes/{class_id}")
+async def api_delete_class(request: Request, class_id: int):
+    if denied := _deny_api(request):
+        return denied
+    # delete class and any associations
+    db.delete_class(class_id)
+    return {"ok": True}
 
 
 @app.get("/api/dashboard")
@@ -487,6 +733,126 @@ async def api_manual_log(request: Request):
     timestamp = payload.get("timestamp")
     record = db.insert_manual_log(emp_id, event_type, status_value, reason, timestamp)
     return record
+
+
+@app.get('/admin/classes/{class_id}', response_class=HTMLResponse)
+async def admin_class_detail(request: Request, class_id: int):
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    cls_row = None
+    for c in db.list_classes():
+        if c['id'] == class_id:
+            cls_row = c
+            break
+    if not cls_row:
+        raise HTTPException(404, 'Class not found')
+    students = db.get_students_in_class(class_id)
+    sponsors = db.get_class_sponsors(class_id)
+    sponsor_ids = {teacher["id"] for teacher in sponsors}
+    sponsor_candidates = db.list_class_sponsor_candidates()
+    return _render(
+        request,
+        'admin/class_detail.html',
+        {
+            'class': cls_row,
+            'students': students,
+            'sponsors': sponsors,
+            'sponsor_candidates': sponsor_candidates,
+            'sponsor_ids': sponsor_ids,
+            'active': 'classes',
+        },
+    )
+
+
+@app.put('/api/classes/{class_id}/sponsors')
+async def api_set_class_sponsors(request: Request, class_id: int):
+    if denied := _deny_api(request):
+        return denied
+    if not any(cls["id"] == class_id for cls in db.list_classes()):
+        raise HTTPException(404, 'Class not found.')
+    payload = await request.json()
+    teacher_ids = payload.get("teacher_ids")
+    if not isinstance(teacher_ids, list) or any(not isinstance(item, str) for item in teacher_ids):
+        raise HTTPException(400, 'teacher_ids must be a list of employee IDs.')
+    teacher_ids = list(dict.fromkeys(item.strip() for item in teacher_ids))
+    eligible_ids = {teacher["id"] for teacher in db.list_class_sponsor_candidates()}
+    invalid_ids = set(teacher_ids) - eligible_ids
+    if invalid_ids:
+        raise HTTPException(400, 'Sponsors must be active teachers, staff, or employees.')
+    db.set_class_sponsors(class_id, teacher_ids)
+    return {"ok": True, "sponsors": db.get_class_sponsors(class_id)}
+
+
+@app.post('/admin/classes/{class_id}/import')
+async def admin_class_import(request: Request, class_id: int, file: UploadFile = File(...)):
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    # basic CSV import without images — creates employees and assigns them to this class
+    content = await file.read()
+    try:
+        text = content.decode('utf-8')
+    except Exception:
+        raise HTTPException(400, 'Could not read uploaded file as UTF-8')
+    reader = csv.DictReader(io.StringIO(text))
+    imported_new = 0
+    assigned_existing = 0
+    errors: list[str] = []
+    max_rows = 2000
+    for i, row in enumerate(reader, start=1):
+        if i > max_rows:
+            errors.append(f'Import aborted: exceeds maximum of {max_rows} rows')
+            break
+        name = (row.get('name') or '').strip()
+        dept = (row.get('department') or '').strip() or 'Unassigned'
+        emp_id = (row.get('employee_id') or '').strip()
+        role = (row.get('role') or 'STUDENT').upper()
+        consent = 1 if str(row.get('consent_given') or '').strip().lower() in ('1', 'true', 'yes') else 0
+        if not name:
+            errors.append(f'Row {i}: missing name')
+            continue
+        if emp_id:
+            existing = db.get_employee(emp_id)
+            if existing:
+                try:
+                    db.assign_student_to_class(emp_id, class_id)
+                    assigned_existing += 1
+                except Exception as exc:
+                    errors.append(f'Row {i}: could not assign existing {emp_id}: {exc}')
+                continue
+        # create new employee with a generated ID
+        if not emp_id:
+            emp_id = db.next_employee_id()
+        # ensure emp_id is unique (append suffix if needed)
+        base = emp_id
+        suffix = 1
+        while db.get_employee(emp_id):
+            emp_id = f"{base}-{suffix}"
+            suffix += 1
+        try:
+            db.create_employee(emp_id, name, dept, role=role, consent_given=consent)
+            db.assign_student_to_class(emp_id, class_id)
+            imported_new += 1
+        except Exception as exc:
+            errors.append(f'Row {i}: {exc}')
+    return JSONResponse({'imported_new': imported_new, 'assigned_existing': assigned_existing, 'errors': errors})
+
+
+@app.post('/api/employees/{emp_id}/classes')
+async def api_set_employee_classes(request: Request, emp_id: str):
+    if denied := _deny_api(request):
+        return denied
+    if not db.get_employee(emp_id):
+        raise HTTPException(404, 'Employee not found')
+    payload = await request.json()
+    class_ids = payload.get('class_ids') or []
+    try:
+        ids = [int(x) for x in class_ids]
+    except Exception:
+        raise HTTPException(400, 'class_ids must be a list of integers')
+    db.set_student_classes(emp_id, ids)
+    return {'ok': True}
 
 
 @app.get("/api/logs/audit")
@@ -1022,10 +1388,38 @@ async def ws_enroll(ws: WebSocket) -> None:
                     )
                     continue
                 name = str(payload.get("name") or "").strip()
+                role = str(payload.get("role") or "STUDENT").strip().upper()
+                if role not in {"STUDENT", "TEACHER", "EMPLOYEE", "STAFF"}:
+                    await ws.send_json({"ok": False, "error": "Choose Student, Teacher, Employee, or Staff."})
+                    continue
                 department = str(payload.get("department") or "").strip()
-                emp_id = str(payload.get("employee_id") or "").strip() or db.next_employee_id()
-                if not name or not department:
-                    await ws.send_json({"ok": False, "error": "Name and department are required."})
+                if role == "STUDENT":
+                    department = department or "Student"
+                elif not department:
+                    await ws.send_json({"ok": False, "error": "Department is required for employees and staff."})
+                    continue
+                emp_id = str(payload.get("employee_id") or "").strip()
+                if not emp_id:
+                    prefix = {"STUDENT": "STU", "TEACHER": "TEACHER", "EMPLOYEE": "EMP", "STAFF": "STAFF"}[role]
+                    emp_id = db.next_person_id(prefix)
+                try:
+                    consent = 1 if int(payload.get("consent_given") or 0) else 0
+                    requested_class_ids = payload.get("class_ids") or []
+                    if not isinstance(requested_class_ids, list):
+                        raise ValueError
+                    class_ids = [int(class_id) for class_id in requested_class_ids]
+                except (TypeError, ValueError):
+                    await ws.send_json({"ok": False, "error": "Invalid consent or class selection."})
+                    continue
+                if role != "STUDENT" and class_ids:
+                    await ws.send_json({"ok": False, "error": "Only students can be assigned to grade classes."})
+                    continue
+                available_class_ids = {item["id"] for item in db.list_classes()}
+                if any(class_id not in available_class_ids for class_id in class_ids):
+                    await ws.send_json({"ok": False, "error": "One or more selected classes no longer exist."})
+                    continue
+                if not name:
+                    await ws.send_json({"ok": False, "error": "Full name is required."})
                     continue
                 if db.get_employee(emp_id):
                     await ws.send_json({"ok": False, "error": f"Employee ID {emp_id} already exists."})
@@ -1044,12 +1438,14 @@ async def ws_enroll(ws: WebSocket) -> None:
                         captured.clear()
                         break
                 else:
-                    employee = db.create_employee(emp_id, name, department)
+                    employee = db.create_employee(emp_id, name, department, role=role, consent_given=consent)
                     face_dir = FACES_DIR / emp_id
                     face_dir.mkdir(parents=True, exist_ok=True)
                     for pose, item in captured.items():
                         (face_dir / f"{pose}.jpg").write_bytes(item["jpeg"])
                         db.add_embedding(emp_id, item["embedding"], pose)
+                    if class_ids:
+                        db.assign_student_to_classes(emp_id, class_ids)
                     rebuild_match_cache()
                     await ws.send_json({"ok": True, "type": "finalize", "employee": employee})
                     captured.clear()

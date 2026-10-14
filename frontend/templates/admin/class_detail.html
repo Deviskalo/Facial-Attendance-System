@@ -1,0 +1,88 @@
+{% extends "admin/base.html" %}
+{% block title %}Class: {{ class.name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>Class: {{ class.name }}</h1>
+  <a class="btn" href="/admin/classes">Back to classes</a>
+</div>
+<div class="panel">
+  <h3>Teacher sponsors</h3>
+  <p class="muted">Choose one or more active teachers, staff, or employees responsible for this class.</p>
+  <select id="sponsor-ids" multiple size="5" style="width:100%">
+    {% for teacher in sponsor_candidates %}
+    <option value="{{ teacher.id }}" {% if teacher.id in sponsor_ids %}selected{% endif %}>
+      {{ teacher.name }} — {{ teacher.role }}{% if teacher.department %} · {{ teacher.department }}{% endif %}
+    </option>
+    {% else %}
+    <option disabled>No active teachers, staff, or employees. Enroll a teacher first.</option>
+    {% endfor %}
+  </select>
+  <button class="btn" id="save-sponsors" type="button" style="margin-top:10px">Save sponsors</button>
+  <p id="sponsor-status" aria-live="polite"></p>
+</div>
+<div class="panel">
+  <h3>Students in this class</h3>
+  <table>
+    <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Role</th><th>Active</th></tr></thead>
+    <tbody>
+      {% for s in students %}
+      <tr>
+        <td>{{ s.id }}</td>
+        <td>{{ s.name }}</td>
+        <td>{{ s.department }}</td>
+        <td>{{ s.role }}</td>
+        <td>{{ 'Yes' if s.is_active else 'No' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No students assigned to this class.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="panel" style="margin-top:12px">
+  <h3>Bulk import students (CSV)</h3>
+  <p>CSV columns: name,department,employee_id (optional),role (optional: STUDENT/STAFF),consent_given (0/1 optional)</p>
+  <input type="file" id="import-file" accept=".csv">
+  <button class="btn" id="import-btn">Import into this class</button>
+  <div id="import-result" style="margin-top:8px"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById('save-sponsors').addEventListener('click', async () => {
+    const selected = Array.from(document.getElementById('sponsor-ids').selectedOptions, (option) => option.value);
+    const status = document.getElementById('sponsor-status');
+    try {
+      const res = await fetch('/api/classes/{{ class.id }}/sponsors', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({teacher_ids: selected})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Could not save sponsors.');
+      status.textContent = 'Sponsors saved.';
+    } catch (err) {
+      status.textContent = 'Could not save sponsors: ' + err.message;
+    }
+  });
+
+  document.getElementById('import-btn').addEventListener('click', async () => {
+    const f = document.getElementById('import-file').files[0];
+    if (!f) return alert('Select a CSV file');
+    const fd = new FormData();
+    fd.append('file', f);
+    try {
+      const res = await fetch(location.pathname + '/import', {method: 'POST', body: fd});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+      let html = `<p>Imported: ${data.imported}</p>`;
+      if (data.errors && data.errors.length) {
+        html += '<ul>' + data.errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+      }
+      document.getElementById('import-result').innerHTML = html;
+    } catch (err) {
+      alert('Import failed: ' + err);
+    }
+  });
+</script>
+{% endblock %}

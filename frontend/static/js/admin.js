@@ -171,6 +171,26 @@ function connectActivity() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const admin = document.querySelector(".admin");
+  const sidebarToggle = document.querySelector(".sidebar-toggle");
+  if (admin && sidebarToggle) {
+    const storageKey = "attendance-admin-sidebar-collapsed";
+    const storedState = window.localStorage.getItem(storageKey);
+    const setCollapsed = (collapsed) => {
+      admin.classList.toggle("sidebar-collapsed", collapsed);
+      sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+      const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+      sidebarToggle.setAttribute("aria-label", label);
+      sidebarToggle.setAttribute("title", label);
+    };
+    setCollapsed(storedState === "true");
+    sidebarToggle.addEventListener("click", () => {
+      const collapsed = !admin.classList.contains("sidebar-collapsed");
+      setCollapsed(collapsed);
+      window.localStorage.setItem(storageKey, String(collapsed));
+    });
+  }
+
   if (document.getElementById("logs-body")) {
     refreshLogs().catch((error) => alert(error.message));
   }
