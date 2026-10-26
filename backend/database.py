@@ -130,6 +130,26 @@ def init_db() -> None:
         if "consent_given" not in emp_columns:
             conn.execute("ALTER TABLE employees ADD COLUMN consent_given INTEGER NOT NULL DEFAULT 0")
 
+        # Create academic terms and holidays tables for school calendar
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS academic_terms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                description TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS holidays (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                date TEXT NOT NULL UNIQUE,
+                description TEXT
+            );
+            """
+        )
+
         conn.executemany(
             "INSERT OR IGNORE INTO classes (name) VALUES (?)",
             [(name,) for name in DEFAULT_CLASS_NAMES],
