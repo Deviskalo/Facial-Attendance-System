@@ -101,6 +101,14 @@ To stop the server, press `Ctrl+C` in the terminal where it is running.
 
 Open `/` for the public home page. It links to the admin dashboard, kiosk, and the About, Privacy, Terms, and desktop-app information pages. After signing in at `/admin`, the sidebar provides access to each role directory, classes, attendance logs, and settings.
 
+The mobile API currently provides a public `GET /api/v1/mobile/health` check and authenticated endpoints: `POST /api/v1/mobile/auth/login`, `GET /api/v1/mobile/me`, `POST /api/v1/mobile/auth/logout`, `GET /api/v1/mobile/dashboard`, `GET /api/v1/mobile/people`, and `GET /api/v1/mobile/attendance`. Dashboard metrics and class summaries are for the selected school day. People and attendance results are paginated (`limit` 1–100, `offset` 0–100000); filters include role, search, class, date range, person, event type, and status as applicable. API records omit face images, embeddings, consent details, and recognition confidence. The health response includes the API version and whether the face-recognition engine is already loaded; checking it does not initialize the model.
+
+An administrator can create individual admin, operator, and reviewer accounts at `/admin/mobile-users`. Passwords must be at least 12 characters. Login returns an opaque bearer token that expires after eight hours; only its hash is stored, and disabling an account or changing its password revokes its active tokens. Mobile roles are included in the response, but role-specific API permissions do not yet differ; all currently implemented data endpoints are read-only.
+
+The initial read-only Expo companion app is in [`mobile/`](./mobile/). It provides sign-in, a dashboard, people directory, and attendance history. Follow its [setup instructions](./mobile/README.md). Class-period attendance, enrollment, recognition, and mobile write operations are not implemented.
+
+Protect mobile sign-in and all future sensitive API traffic with HTTPS. Configure a trusted HTTPS reverse proxy and set `SESSION_COOKIE_SECURE=1` for the web admin cookie. The mobile API rejects plain HTTP from network clients by default; `http://localhost` is allowed for local development. Set `MOBILE_API_ALLOW_HTTP=1` only when every client is restricted to an encrypted, managed VPN and the host firewall blocks other access. This setting does not itself verify that a VPN is in use. Do not expose port `8000` directly to the internet.
+
 1. **Prepare the kiosk:** Open `/kiosk` in a browser and allow camera access. Keep the server process running.
 2. **Set up administration:** Open `/admin`, create the initial administrator password, and sign in.
 3. **Add classes and sponsors:** Open **Classes** to review the seeded 1st–12th Grade classes, create other classes if needed, and assign teachers, staff, or employees as class sponsors.

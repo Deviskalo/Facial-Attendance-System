@@ -1,0 +1,77 @@
+{% extends "admin/base.html" %}
+{% block title %}Mobile accounts{% endblock %}
+{% block content %}
+<header class="topbar">
+  <div>
+    <p class="eyebrow">MOBILE COMPANION ACCESS</p>
+    <h1>Mobile accounts</h1>
+  </div>
+</header>
+
+{% if error %}
+<div class="error" role="alert">{{ error }}</div>
+{% elif created %}
+<p class="success-message" role="status">Mobile account created.</p>
+{% endif %}
+
+<section class="panel mobile-account-notice">
+  <h2>Secure access</h2>
+  <p>Mobile sign-in requires HTTPS. Configure the app behind a trusted HTTPS reverse proxy. Only set <code>MOBILE_API_ALLOW_HTTP=1</code> when all mobile connections are protected by an encrypted, managed VPN. Never send account passwords or face images over untrusted HTTP.</p>
+</section>
+
+<section class="panel" style="margin-top:16px">
+  <h2>Create a mobile account</h2>
+  <form method="post" action="/admin/mobile-users" class="mobile-account-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="mobile-username">Username</label>
+    <input id="mobile-username" name="username" minlength="3" maxlength="64" pattern="[A-Za-z0-9._-]{3,64}" autocomplete="off" required>
+    <label for="mobile-display-name">Display name</label>
+    <input id="mobile-display-name" name="display_name" maxlength="100" required>
+    <label for="mobile-role">Role</label>
+    <select id="mobile-role" name="role" required>
+      <option value="admin">Admin — manage mobile users, enroll, correct attendance</option>
+      <option value="operator">Operator — view and record attendance</option>
+      <option value="reviewer">Reviewer — read-only access</option>
+    </select>
+    <label for="mobile-password">Password</label>
+    <input id="mobile-password" name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+    <label for="mobile-confirm-password">Confirm password</label>
+    <input id="mobile-confirm-password" name="confirm_password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+    <button class="btn" type="submit">Create account</button>
+  </form>
+</section>
+
+<section class="panel" style="margin-top:16px">
+  <h2>Existing mobile accounts</h2>
+  {% if mobile_users %}
+  <div class="mobile-user-list">
+    {% for user in mobile_users %}
+    <article class="mobile-user-row">
+      <div class="mobile-user-summary">
+        <strong>{{ user.display_name }}</strong>
+        <span>{{ user.username }} · {{ user.role | title }} · {{ "Active" if user.is_active else "Disabled" }}</span>
+      </div>
+      <form method="post" action="/admin/mobile-users/{{ user.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="active" value="{{ 0 if user.is_active else 1 }}">
+        <button class="btn secondary" type="submit">{{ "Disable" if user.is_active else "Enable" }}</button>
+      </form>
+      <details>
+        <summary>Reset password</summary>
+        <form method="post" action="/admin/mobile-users/{{ user.id }}/password" class="mobile-password-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label for="password-{{ user.id }}">New password</label>
+          <input id="password-{{ user.id }}" name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+          <label for="confirm-password-{{ user.id }}">Confirm new password</label>
+          <input id="confirm-password-{{ user.id }}" name="confirm_password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+          <button class="btn secondary" type="submit">Save new password</button>
+        </form>
+      </details>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No mobile accounts have been created.</p>
+  {% endif %}
+</section>
+{% endblock %}

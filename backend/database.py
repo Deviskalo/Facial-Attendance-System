@@ -111,6 +111,28 @@ def init_db() -> None:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS mobile_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                display_name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('admin', 'operator', 'reviewer')),
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS mobile_access_tokens (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                revoked_at TEXT,
+                FOREIGN KEY(user_id) REFERENCES mobile_users(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_mobile_access_tokens_user
+                ON mobile_access_tokens(user_id);
             """
         )
         audit_columns = {
@@ -197,6 +219,114 @@ def set_settings(updates: dict[str, str]) -> None:
                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (key, value),
             )
+
+
+def create_mobile_user(
+    username: str,
+    display_name: str,
+    password_hash: str,
+    role: str,
+) -> dict[str, Any]:
+    created = _now()
+    with get_db() as conn:
+        cursor = conn.execute(
+            "INSERT INTO mobile_users "
+            "(username, display_name, password_hash, role, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (username, display_name, password_hash, role, created),
+        )
+        user_id = cursor.lastrowid
+    return {
+        "id": user_id,
+        "username": username,
+        "display_name": display_name,
+        "role": role,
+        "is_active": 1,
+        "created_at": created,
+    }
+
+
+def list_mobile_users() -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, username, display_name, role, is_active, created_at "
+            "FROM mobile_users ORDER BY username COLLATE NOCASE"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_mobile_user(user_id: int) -> Optional[dict[str, Any]]:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM mobile_users WHERE id = ?", (user_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_mobile_user_by_username(username: str) -> Optional[dict[str, Any]]:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM mobile_users WHERE username = ? COLLATE NOCASE",
+            (username,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def update_mobile_user(user_id: int, **fields: Any) -> None:
+    allowed = {"display_name", "password_hash", "role", "is_active"}
+    changes = {key: value for key, value in fields.items() if key in allowed}
+    if not changes:
+        return
+    assignments = ", ".join(f"{key} = ?" for key in changes)
+    with get_db() as conn:
+        conn.execute(
+            f"UPDATE mobile_users SET {assignments} WHERE id = ?",
+            [*changes.values(), user_id],
+        )
+
+
+def create_mobile_access_token(
+    token_hash: str, user_id: int, created_at: str, expires_at: str
+) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO mobile_access_tokens "
+            "(token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (token_hash, user_id, created_at, expires_at),
+        )
+
+
+def get_mobile_user_for_token(
+    token_hash: str, now: str
+) -> Optional[dict[str, Any]]:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT u.id, u.username, u.display_name, u.role "
+            "FROM mobile_access_tokens t "
+            "JOIN mobile_users u ON u.id = t.user_id "
+            "WHERE t.token_hash = ? AND t.revoked_at IS NULL "
+            "AND t.expires_at > ? AND u.is_active = 1",
+            (token_hash, now),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def revoke_mobile_access_token(token_hash: str, revoked_at: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE mobile_access_tokens SET revoked_at = ? "
+            "WHERE token_hash = ? AND revoked_at IS NULL",
+            (revoked_at, token_hash),
+        )
+
+
+def revoke_mobile_user_tokens(user_id: int, revoked_at: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE mobile_access_tokens SET revoked_at = ? "
+            "WHERE user_id = ? AND revoked_at IS NULL",
+            (revoked_at, user_id),
+        )
 
 
 def next_employee_id() -> str:
@@ -644,6 +774,136 @@ def query_daily_class_summary(day: Optional[str] = None) -> list[dict[str, Any]]
         class_row["absent"] = class_row["enrolled"] - class_row["present"]
         summary.append(class_row)
     return summary
+
+
+def query_mobile_people(
+    role: Optional[str],
+    search: Optional[str],
+    class_id: Optional[int],
+    active_only: bool,
+    limit: int,
+    offset: int,
+) -> tuple[list[dict[str, Any]], int]:
+    conditions = ["1 = 1"]
+    params: list[Any] = []
+    if role:
+        conditions.append("UPPER(e.role) = ?")
+        params.append(role.upper())
+    if search:
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        conditions.append(
+            "(e.name LIKE ? ESCAPE '\\' OR e.id LIKE ? ESCAPE '\\' "
+            "OR e.department LIKE ? ESCAPE '\\')"
+        )
+        params.extend((pattern, pattern, pattern))
+    if class_id is not None:
+        conditions.append(
+            "UPPER(e.role) = 'STUDENT' AND EXISTS ("
+            "SELECT 1 FROM student_classes sc "
+            "WHERE sc.student_id = e.id AND sc.class_id = ?)"
+        )
+        params.append(class_id)
+    if active_only:
+        conditions.append("e.is_active = 1")
+    where_clause = " AND ".join(conditions)
+
+    with get_db() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS total FROM employees e WHERE {where_clause}",
+            params,
+        ).fetchone()["total"]
+        rows = conn.execute(
+            "SELECT e.id, e.name, e.department, e.role, e.is_active, e.created_at "
+            f"FROM employees e WHERE {where_clause} "
+            "ORDER BY e.name COLLATE NOCASE, e.id LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        ).fetchall()
+        people = [dict(row) for row in rows]
+        if people:
+            ids = [person["id"] for person in people]
+            placeholders = ",".join("?" for _ in ids)
+            class_rows = conn.execute(
+                "SELECT sc.student_id AS person_id, c.id AS class_id, c.name "
+                "FROM student_classes sc JOIN classes c ON c.id = sc.class_id "
+                f"WHERE sc.student_id IN ({placeholders}) "
+                "UNION ALL "
+                "SELECT ct.teacher_id AS person_id, c.id AS class_id, c.name "
+                "FROM class_teachers ct JOIN classes c ON c.id = ct.class_id "
+                f"WHERE ct.teacher_id IN ({placeholders}) "
+                "ORDER BY name COLLATE NOCASE, class_id",
+                [*ids, *ids],
+            ).fetchall()
+        else:
+            class_rows = []
+
+    classes_by_person: dict[str, list[dict[str, Any]]] = {}
+    for row in class_rows:
+        classes_by_person.setdefault(row["person_id"], []).append(
+            {"id": row["class_id"], "name": row["name"]}
+        )
+    for person in people:
+        person["is_active"] = bool(person["is_active"])
+        person["classes"] = classes_by_person.get(person["id"], [])
+    return people, total
+
+
+def query_mobile_attendance(
+    start_date: Optional[str],
+    end_date: Optional[str],
+    person_id: Optional[str],
+    role: Optional[str],
+    event_type: Optional[str],
+    status: Optional[str],
+    class_id: Optional[int],
+    limit: int,
+    offset: int,
+) -> tuple[list[dict[str, Any]], int]:
+    conditions = ["1 = 1"]
+    params: list[Any] = []
+    if start_date:
+        conditions.append("l.timestamp >= ?")
+        params.append(f"{start_date} 00:00:00")
+    if end_date:
+        conditions.append("l.timestamp < date(?, '+1 day')")
+        params.append(end_date)
+    if person_id:
+        conditions.append("l.employee_id = ?")
+        params.append(person_id)
+    if role:
+        conditions.append("UPPER(e.role) = ?")
+        params.append(role.upper())
+    if event_type:
+        conditions.append("l.event_type = ?")
+        params.append(event_type)
+    if status:
+        conditions.append("l.status = ?")
+        params.append(status)
+    if class_id is not None:
+        conditions.append(
+            "UPPER(e.role) = 'STUDENT' AND EXISTS ("
+            "SELECT 1 FROM student_classes sc "
+            "WHERE sc.student_id = e.id AND sc.class_id = ?)"
+        )
+        params.append(class_id)
+    where_clause = " AND ".join(conditions)
+
+    with get_db() as conn:
+        total = conn.execute(
+            "SELECT COUNT(*) AS total FROM attendance_logs l "
+            "JOIN employees e ON e.id = l.employee_id "
+            f"WHERE {where_clause}",
+            params,
+        ).fetchone()["total"]
+        rows = conn.execute(
+            "SELECT l.id, l.employee_id, e.name, e.department, e.role, "
+            "l.timestamp, l.event_type, l.status "
+            "FROM attendance_logs l JOIN employees e ON e.id = l.employee_id "
+            f"WHERE {where_clause} "
+            "ORDER BY l.timestamp DESC, l.id DESC LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        ).fetchall()
+    return [dict(row) for row in rows], total
 
 
 def present_employee_ids(day: Optional[str] = None) -> set[str]:

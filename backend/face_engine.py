@@ -40,6 +40,10 @@ def ensure_models() -> None:
     get_face_app()
 
 
+def is_face_engine_ready() -> bool:
+    return _app is not None
+
+
 def get_face_app():
     global _app
     if _app is not None:

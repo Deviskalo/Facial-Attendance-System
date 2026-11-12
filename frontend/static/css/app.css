@@ -197,11 +197,26 @@ th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--lin
 .quality-guidance.warning { color: var(--yellow); }
 .quality-guidance.error { color: var(--red); }
 .quality li { margin: 4px 0; }
+.mobile-account-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; max-width: 760px; }
+.mobile-account-form label { align-self: end; }
+.mobile-account-form button { margin-top: 16px; }
+.mobile-account-notice { border-color: #665221; }
+.mobile-account-notice h2 { margin-top: 0; }
+.mobile-account-notice p { margin-bottom: 0; color: var(--muted); line-height: 1.65; }
+.mobile-user-list { display: grid; gap: 12px; }
+.mobile-user-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
+.mobile-user-summary { display: grid; flex: 1; min-width: 200px; gap: 4px; }
+.mobile-user-summary span { color: var(--muted); font-size: 13px; }
+.mobile-user-row details { flex-basis: 100%; }
+.mobile-user-row summary { width: fit-content; color: var(--accent); cursor: pointer; }
+.mobile-password-form { max-width: 520px; padding-top: 8px; }
+.success-message { padding: 10px 12px; border: 1px solid #166534; border-radius: 8px; color: #bbf7d0; background: #14532d; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .hidden { display: none !important; }
 
 @media (max-width: 960px) {
   .admin, .wizard, .grid-2, .metrics { grid-template-columns: 1fr; }
+  .mobile-account-form { grid-template-columns: 1fr; }
   .admin { transition: none; }
   .sidebar { padding: 12px; border-right: 0; border-bottom: 1px solid var(--line); }
   .sidebar-heading { margin-bottom: 8px; }

@@ -6,7 +6,10 @@ import csv
 import io
 import json
 import logging
+import os
+import re
 import secrets
+import sqlite3
 import threading
 import time
 import zipfile
@@ -48,6 +51,7 @@ from backend.auth import (
     is_admin,
     load_or_create_session_secret,
     require_admin_redirect,
+    hash_password,
     set_admin_password,
 )
 from backend.config import (
@@ -63,9 +67,23 @@ from backend.face_engine import (
     crop_face,
     decode_image,
     find_duplicate,
+    is_face_engine_ready,
     match_embedding,
     preview_matches,
     rebuild_match_cache,
+)
+from backend.mobile_auth import (
+    ACCESS_TOKEN_LIFETIME,
+    authenticate_bearer_token,
+    authenticate_mobile_user,
+    check_login_rate_limit,
+    clear_login_failures,
+    issue_access_token,
+    mobile_user_payload,
+    record_login_failure,
+    require_secure_mobile_transport,
+    token_hash,
+    utc_timestamp,
 )
 
 ensure_directories()
@@ -161,7 +179,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=load_or_create_session_secret(),
     session_cookie="kiosk_admin",
-    https_only=False,
+    https_only=os.environ.get("SESSION_COOKIE_SECURE") == "1",
     same_site="lax",
     max_age=60 * 60 * 12,
 )
@@ -210,6 +228,20 @@ def _deny_api(request: Request) -> Optional[JSONResponse]:
     if not is_admin(request):
         return JSONResponse({"detail": "Unauthorized"}, status_code=401)
     return None
+
+
+def _mobile_admin_csrf_token(request: Request) -> str:
+    token = request.session.get("mobile_user_csrf")
+    if not isinstance(token, str) or not token:
+        token = secrets.token_urlsafe(32)
+        request.session["mobile_user_csrf"] = token
+    return token
+
+
+def _verify_mobile_admin_csrf(request: Request, supplied: str) -> None:
+    expected = request.session.get("mobile_user_csrf")
+    if not isinstance(expected, str) or not secrets.compare_digest(expected, supplied):
+        raise HTTPException(status_code=403, detail="Invalid form security token.")
 
 
 def _decode_data_url(image: str) -> bytes:
@@ -266,6 +298,196 @@ async def terms(request: Request) -> HTMLResponse:
 @app.get("/download", response_class=HTMLResponse)
 async def download(request: Request) -> HTMLResponse:
     return _render(request, "public/download.html")
+
+
+@app.get("/api/v1/mobile/health")
+async def mobile_api_health() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "api_version": "1",
+        "server_name": "Face Attendance Host",
+        "recognition_ready": is_face_engine_ready(),
+    }
+
+
+@app.post("/api/v1/mobile/auth/login")
+async def mobile_api_login(request: Request) -> dict[str, Any]:
+    require_secure_mobile_transport(request)
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, "Request body must be valid JSON.") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "Request body must be a JSON object.")
+
+    username = payload.get("username")
+    password = payload.get("password")
+    if (
+        not isinstance(username, str)
+        or not 1 <= len(username.strip()) <= 64
+        or not isinstance(password, str)
+        or not 1 <= len(password) <= 256
+    ):
+        raise HTTPException(400, "Username or password is invalid.")
+
+    client_host = request.client.host if request.client else "unknown"
+    check_login_rate_limit(client_host)
+    user = await asyncio.to_thread(
+        authenticate_mobile_user, username.strip(), password
+    )
+    if not user:
+        record_login_failure(client_host)
+        raise HTTPException(401, "Invalid username or password.")
+    clear_login_failures(client_host)
+
+    access_token, expires_at = issue_access_token(user["id"])
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_at": expires_at,
+        "expires_in": int(ACCESS_TOKEN_LIFETIME.total_seconds()),
+        "user": mobile_user_payload(user),
+    }
+
+
+@app.post("/api/v1/mobile/auth/logout")
+async def mobile_api_logout(request: Request) -> dict[str, bool]:
+    require_secure_mobile_transport(request)
+    _, hashed_token = authenticate_bearer_token(request)
+    db.revoke_mobile_access_token(hashed_token, utc_timestamp())
+    return {"ok": True}
+
+
+@app.get("/api/v1/mobile/me")
+async def mobile_api_me(request: Request) -> dict[str, Any]:
+    require_secure_mobile_transport(request)
+    user, _ = authenticate_bearer_token(request)
+    return mobile_user_payload(user)
+
+
+def _validate_mobile_date(value: Optional[str], field: str) -> Optional[str]:
+    if value is None:
+        return None
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise HTTPException(400, f"{field} must use YYYY-MM-DD format.") from exc
+    if parsed.strftime("%Y-%m-%d") != value:
+        raise HTTPException(400, f"{field} must use YYYY-MM-DD format.")
+    return value
+
+
+def _validate_mobile_role(role: Optional[str]) -> Optional[str]:
+    if role is None:
+        return None
+    normalized = role.strip().upper()
+    if normalized not in {"STUDENT", "TEACHER", "STAFF", "EMPLOYEE"}:
+        raise HTTPException(400, "role must be STUDENT, TEACHER, STAFF, or EMPLOYEE.")
+    return normalized
+
+
+def _validate_mobile_pagination(limit: int, offset: int) -> None:
+    if not 1 <= limit <= 100:
+        raise HTTPException(400, "limit must be between 1 and 100.")
+    if not 0 <= offset <= 100000:
+        raise HTTPException(400, "offset must be between 0 and 100000.")
+
+
+@app.get("/api/v1/mobile/dashboard")
+async def mobile_api_dashboard(
+    request: Request, date: Optional[str] = None
+) -> dict[str, Any]:
+    require_secure_mobile_transport(request)
+    authenticate_bearer_token(request)
+    selected_date = _validate_mobile_date(date, "date") or datetime.now().strftime(
+        "%Y-%m-%d"
+    )
+    return {
+        "date": selected_date,
+        "metrics": db.dashboard_metrics(selected_date),
+        "classes": db.query_daily_class_summary(selected_date),
+    }
+
+
+@app.get("/api/v1/mobile/people")
+async def mobile_api_people(
+    request: Request,
+    role: Optional[str] = None,
+    search: Optional[str] = None,
+    class_id: Optional[int] = None,
+    active_only: bool = True,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    require_secure_mobile_transport(request)
+    authenticate_bearer_token(request)
+    _validate_mobile_pagination(limit, offset)
+    normalized_role = _validate_mobile_role(role)
+    normalized_search = search.strip() if search and search.strip() else None
+    if normalized_search and len(normalized_search) > 100:
+        raise HTTPException(400, "search must be 100 characters or fewer.")
+    if class_id is not None and class_id < 1:
+        raise HTTPException(400, "class_id must be a positive integer.")
+    if class_id is not None and normalized_role not in {None, "STUDENT"}:
+        raise HTTPException(400, "class_id can only be combined with the STUDENT role.")
+    people, total = db.query_mobile_people(
+        normalized_role,
+        normalized_search,
+        class_id,
+        active_only,
+        limit,
+        offset,
+    )
+    return {"items": people, "total": total, "limit": limit, "offset": offset}
+
+
+@app.get("/api/v1/mobile/attendance")
+async def mobile_api_attendance(
+    request: Request,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    person_id: Optional[str] = None,
+    role: Optional[str] = None,
+    event_type: Optional[str] = None,
+    status: Optional[str] = None,
+    class_id: Optional[int] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    require_secure_mobile_transport(request)
+    authenticate_bearer_token(request)
+    _validate_mobile_pagination(limit, offset)
+    selected_start = _validate_mobile_date(start_date, "start_date")
+    selected_end = _validate_mobile_date(end_date, "end_date")
+    if selected_start and selected_end and selected_start > selected_end:
+        raise HTTPException(400, "start_date must be on or before end_date.")
+    normalized_role = _validate_mobile_role(role)
+    if person_id is not None and (not person_id.strip() or len(person_id) > 64):
+        raise HTTPException(400, "person_id must be 1–64 characters.")
+    if event_type is not None:
+        event_type = event_type.upper()
+        if event_type not in {"CHECK_IN", "CHECK_OUT"}:
+            raise HTTPException(400, "event_type must be CHECK_IN or CHECK_OUT.")
+    if status is not None:
+        status = status.upper()
+        if status not in {"ON_TIME", "LATE", "MANUAL"}:
+            raise HTTPException(400, "status must be ON_TIME, LATE, or MANUAL.")
+    if class_id is not None and class_id < 1:
+        raise HTTPException(400, "class_id must be a positive integer.")
+    if class_id is not None and normalized_role not in {None, "STUDENT"}:
+        raise HTTPException(400, "class_id can only be combined with the STUDENT role.")
+    records, total = db.query_mobile_attendance(
+        selected_start,
+        selected_end,
+        person_id.strip() if person_id else None,
+        normalized_role,
+        event_type,
+        status,
+        class_id,
+        limit,
+        offset,
+    )
+    return {"items": records, "total": total, "limit": limit, "offset": offset}
 
 
 @app.get("/kiosk", response_class=HTMLResponse)
@@ -593,6 +815,105 @@ async def admin_settings(request: Request):
         return redirect
     settings = _public_settings()
     return _render(request, "admin/settings.html", {"active": "settings", "settings": settings})
+
+
+@app.get("/admin/mobile-users", response_class=HTMLResponse)
+async def admin_mobile_users(request: Request, error: Optional[str] = None):
+    require_secure_mobile_transport(request)
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    return _render(
+        request,
+        "admin/mobile_users.html",
+        {
+            "active": "mobile-users",
+            "mobile_users": db.list_mobile_users(),
+            "csrf_token": _mobile_admin_csrf_token(request),
+            "error": error,
+            "created": request.query_params.get("created") == "1",
+        },
+    )
+
+
+@app.post("/admin/mobile-users")
+async def admin_mobile_user_create(request: Request):
+    require_secure_mobile_transport(request)
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    form = await request.form()
+    _verify_mobile_admin_csrf(request, str(form.get("csrf_token") or ""))
+
+    username = str(form.get("username") or "").strip()
+    display_name = str(form.get("display_name") or "").strip()
+    role = str(form.get("role") or "").strip()
+    password = str(form.get("password") or "")
+    confirmation = str(form.get("confirm_password") or "")
+    error = None
+    if not re.fullmatch(r"[A-Za-z0-9._-]{3,64}", username):
+        error = "Username must be 3–64 letters, numbers, dots, underscores, or hyphens."
+    elif not display_name or len(display_name) > 100:
+        error = "Display name is required and must be 100 characters or fewer."
+    elif role not in {"admin", "operator", "reviewer"}:
+        error = "Choose a valid mobile account role."
+    elif len(password) < 12 or len(password) > 256:
+        error = "Mobile account passwords must be 12–256 characters."
+    elif password != confirmation:
+        error = "Passwords do not match."
+
+    if error:
+        return await admin_mobile_users(request, error)
+
+    try:
+        password_hash = await asyncio.to_thread(hash_password, password)
+        db.create_mobile_user(username, display_name, password_hash, role)
+    except sqlite3.IntegrityError:
+        return await admin_mobile_users(request, "That username is already in use.")
+    return RedirectResponse("/admin/mobile-users?created=1", status_code=303)
+
+
+@app.post("/admin/mobile-users/{user_id}/status")
+async def admin_mobile_user_status(request: Request, user_id: int):
+    require_secure_mobile_transport(request)
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    form = await request.form()
+    _verify_mobile_admin_csrf(request, str(form.get("csrf_token") or ""))
+    user = db.get_mobile_user(user_id)
+    if not user:
+        raise HTTPException(404, "Mobile account not found.")
+    active = str(form.get("active") or "") == "1"
+    db.update_mobile_user(user_id, is_active=int(active))
+    if not active:
+        db.revoke_mobile_user_tokens(user_id, utc_timestamp())
+    return RedirectResponse("/admin/mobile-users", status_code=303)
+
+
+@app.post("/admin/mobile-users/{user_id}/password")
+async def admin_mobile_user_password(request: Request, user_id: int):
+    require_secure_mobile_transport(request)
+    redirect = require_admin_redirect(request)
+    if redirect:
+        return redirect
+    form = await request.form()
+    _verify_mobile_admin_csrf(request, str(form.get("csrf_token") or ""))
+    user = db.get_mobile_user(user_id)
+    if not user:
+        raise HTTPException(404, "Mobile account not found.")
+    password = str(form.get("password") or "")
+    confirmation = str(form.get("confirm_password") or "")
+    if len(password) < 12 or len(password) > 256:
+        return await admin_mobile_users(
+            request, "Mobile account passwords must be 12–256 characters."
+        )
+    if password != confirmation:
+        return await admin_mobile_users(request, "Passwords do not match.")
+    password_hash = await asyncio.to_thread(hash_password, password)
+    db.update_mobile_user(user_id, password_hash=password_hash)
+    db.revoke_mobile_user_tokens(user_id, utc_timestamp())
+    return RedirectResponse("/admin/mobile-users", status_code=303)
 
 
 @app.get("/admin/classes", response_class=HTMLResponse)
