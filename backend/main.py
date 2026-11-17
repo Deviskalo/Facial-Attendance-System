@@ -85,6 +85,7 @@ from backend.mobile_auth import (
     token_hash,
     utc_timestamp,
 )
+from backend.mobile_discovery import close_local_mobile_discovery, start_local_mobile_discovery
 
 ensure_directories()
 db.init_db()
@@ -161,6 +162,15 @@ async def _automatic_backup_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.debug("Starting automatic backups for %s.", app.title)
+    discovery = None
+    if os.environ.get("MOBILE_TLS_ENABLED") == "1":
+        try:
+            discovery = await start_local_mobile_discovery()
+        except Exception:
+            logger.exception(
+                "Could not advertise the local HTTPS mobile service. "
+                "The server is running, but automatic app discovery is unavailable."
+            )
     backup_task = asyncio.create_task(_automatic_backup_loop())
     try:
         yield
@@ -170,6 +180,7 @@ async def lifespan(app: FastAPI):
             await backup_task
         except asyncio.CancelledError:
             pass
+        await close_local_mobile_discovery(discovery)
 
 
 app = FastAPI(
@@ -1778,9 +1789,6 @@ async def ws_enroll(ws: WebSocket) -> None:
 
 
 if __name__ == "__main__":
-    import uvicorn
+    from backend.serve import main as serve
 
-    from backend.config import HOST, PORT, print_access_urls
-
-    print_access_urls()
-    uvicorn.run("backend.main:app", host=HOST, port=PORT)
+    serve()

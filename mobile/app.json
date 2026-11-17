@@ -9,7 +9,13 @@
     "platforms": ["android", "ios"],
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Face Attendance discovers the attendance host on your school Wi-Fi.",
+        "NSBonjourServices": [
+          "_faceattendance._tcp"
+        ]
+      }
     },
     "android": {
       "package": "com.deviskalo.faceattendance",
@@ -23,6 +29,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withLocalServerCA",
       [
         "expo-secure-store",
         {

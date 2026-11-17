@@ -34,12 +34,12 @@ if errorlevel 1 (
   if errorlevel 1 exit /b 1
 )
 
-.venv\Scripts\python.exe -c "import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl" >nul 2>&1
+.venv\Scripts\python.exe -c "import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl, zeroconf" >nul 2>&1
 if errorlevel 1 (
   echo One or more application packages are missing. Running setup first...
   call setup.bat
   if errorlevel 1 exit /b 1
-  .venv\Scripts\python.exe -c "import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl" >nul 2>&1
+  .venv\Scripts\python.exe -c "import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl, zeroconf" >nul 2>&1
   if errorlevel 1 (
     echo Application dependencies are still unavailable. Review the setup output above.
     exit /b 1
@@ -52,15 +52,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Starting Face Attendance Kiosk on port 8000...
+echo Starting Face Attendance Kiosk...
 .venv\Scripts\python.exe -c "from backend.config import print_access_urls; print_access_urls()"
 if errorlevel 1 (
   echo Could not load the application configuration.
   exit /b 1
 )
-.venv\Scripts\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+.venv\Scripts\python.exe -m backend.serve
 if errorlevel 1 (
-  echo The server stopped with an error. Check whether port 8000 is already in use.
+  echo The server stopped with an error. Check whether the configured port is already in use.
   exit /b 1
 )
 endlocal

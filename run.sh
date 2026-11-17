@@ -27,10 +27,10 @@ if ! .venv/bin/python -c 'import uvicorn' >/dev/null 2>&1; then
   bash ./setup.sh
 fi
 
-if ! .venv/bin/python -c 'import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl' >/dev/null 2>&1; then
+if ! .venv/bin/python -c 'import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl, zeroconf' >/dev/null 2>&1; then
   echo "One or more application packages are missing. Running setup first..."
   bash ./setup.sh
-  if ! .venv/bin/python -c 'import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl' >/dev/null 2>&1; then
+  if ! .venv/bin/python -c 'import fastapi, uvicorn, jinja2, multipart, cv2, numpy, insightface, onnxruntime, PIL, itsdangerous, openpyxl, zeroconf' >/dev/null 2>&1; then
     echo "Application dependencies are still unavailable. Review the setup output above."
     exit 1
   fi
@@ -41,6 +41,6 @@ if ! .venv/bin/python -c 'from backend.face_engine import ensure_models; ensure_
   exit 1
 fi
 
-echo "Starting Face Attendance Kiosk on port 8000..."
+echo "Starting Face Attendance Kiosk..."
 .venv/bin/python -c "from backend.config import print_access_urls; print_access_urls()"
-exec .venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+exec .venv/bin/python -m backend.serve

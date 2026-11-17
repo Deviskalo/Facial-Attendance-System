@@ -236,6 +236,16 @@ def local_ip() -> str:
 
 def print_access_urls() -> None:
     ip = local_ip()
-    print(f"Kiosk  http://{ip}:{PORT}/kiosk")
-    print(f"Admin  http://{ip}:{PORT}/admin")
-    print(f"Local  http://127.0.0.1:{PORT}/kiosk")
+    secure = bool(
+        os.environ.get("MOBILE_TLS_CERT_FILE")
+        and os.environ.get("MOBILE_TLS_KEY_FILE")
+    )
+    scheme = "https" if secure else "http"
+    port = int(os.environ.get("MOBILE_HTTPS_PORT", "8443")) if secure else PORT
+    hostname = os.environ.get("MOBILE_DISCOVERY_HOSTNAME") or socket.gethostname()
+    hostname = hostname.removesuffix(".local")
+    print(f"Kiosk  {scheme}://{ip}:{port}/kiosk")
+    print(f"Admin  {scheme}://{ip}:{port}/admin")
+    print(f"Local  {scheme}://127.0.0.1:{port}/kiosk")
+    if secure:
+        print(f"Mobile https://{hostname}.local:{port}")

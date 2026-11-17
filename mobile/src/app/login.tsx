@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../auth/AuthProvider';
 import { ActionButton, colors, Field, Heading, Notice, Panel } from '../components/ui';
+import { discoverAttendanceHost } from '../lib/discovery';
 
 export default function LoginScreen() {
   const { signIn, serverUrl, startupError } = useAuth();
@@ -10,6 +11,12 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [discoveryStatus, setDiscoveryStatus] = useState('Looking for the attendance host on this Wi-Fi…');
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    return discoverAttendanceHost(setServer, setDiscoveryStatus);
+  }, []);
 
   const submit = async () => {
     setSubmitting(true);
@@ -51,6 +58,11 @@ export default function LoginScreen() {
             value={server}
             keyboardType="url"
           />
+          {discoveryStatus ? (
+            <Text accessibilityLiveRegion="polite" style={styles.discovery}>
+              {discoveryStatus}
+            </Text>
+          ) : null}
           <Field
             autoCapitalize="none"
             autoCorrect={false}
@@ -100,5 +112,6 @@ const styles = StyleSheet.create({
   brandMarkText: { color: '#06221e', fontSize: 13, fontWeight: '900' },
   brandName: { color: colors.muted, fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
   security: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 16 },
+  discovery: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: 14, marginTop: -4 },
   footer: { color: '#62787e', fontSize: 11, marginTop: 30, textAlign: 'center' },
 });
